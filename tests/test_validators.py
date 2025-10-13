@@ -2,9 +2,9 @@
 import pytest
 from decimal import Decimal
 
-from gl_core.models import Account, AccountChart, JournalEntry, JournalLine
-from gl_core.rules import validate_journal_entry
-from gl_core.models.account import AccountType
+from models import Account, AccountChart, JournalEntry, JournalLine
+from rules import validate_journal_entry
+from models.account import AccountType
 
 @pytest.fixture
 def sample_coa():

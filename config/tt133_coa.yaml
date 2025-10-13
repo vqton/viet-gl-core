@@ -1,0 +1,214 @@
+# Chart of Accounts - Theo Thông tư 133/2016/TT-BTC (dành cho DN nhỏ và vừa)
+# Cấu trúc: <mã_tài_khoản>: { name: "...", type: "...", normal_balance: "..." }
+
+# === LOẠI 1: TÀI SẢN NGẮN HẠN ===
+111:
+  name: "Tiền mặt"
+  type: "asset"
+  normal_balance: "debit"
+1111:
+  name: "Tiền Việt Nam"
+  type: "asset"
+  normal_balance: "debit"
+1112:
+  name: "Ngoại tệ"
+  type: "asset"
+  normal_balance: "debit"
+112:
+  name: "Tiền gửi ngân hàng"
+  type: "asset"
+  normal_balance: "debit"
+1121:
+  name: "Tiền gửi VNĐ"
+  type: "asset"
+  normal_balance: "debit"
+1122:
+  name: "Tiền gửi ngoại tệ"
+  type: "asset"
+  normal_balance: "debit"
+113:
+  name: "Tiền đang chuyển"
+  type: "asset"
+  normal_balance: "debit"
+131:
+  name: "Phải thu khách hàng"
+  type: "asset"
+  normal_balance: "debit"
+133:
+  name: "Thuế GTGT được khấu trừ"
+  type: "asset"
+  normal_balance: "debit"
+1331:
+  name: "Thuế GTGT được khấu trừ của hàng hóa, dịch vụ"
+  type: "asset"
+  normal_balance: "debit"
+136:
+  name: "Phải thu nội bộ"
+  type: "asset"
+  normal_balance: "debit"
+138:
+  name: "Phải thu khác"
+  type: "asset"
+  normal_balance: "debit"
+141:
+  name: "Tạm ứng"
+  type: "asset"
+  normal_balance: "debit"
+152:
+  name: "Nguyên liệu, vật liệu"
+  type: "asset"
+  normal_balance: "debit"
+153:
+  name: "Công cụ, dụng cụ"
+  type: "asset"
+  normal_balance: "debit"
+154:
+  name: "Chi phí sản xuất, kinh doanh dở dang"
+  type: "asset"
+  normal_balance: "debit"
+155:
+  name: "Thành phẩm"
+  type: "asset"
+  normal_balance: "debit"
+156:
+  name: "Hàng hóa"
+  type: "asset"
+  normal_balance: "debit"
+157:
+  name: "Hàng gửi đi bán"
+  type: "asset"
+  normal_balance: "debit"
+159:
+  name: "Dự phòng giảm giá hàng tồn kho"
+  type: "contra_asset"
+  normal_balance: "credit"
+
+# === LOẠI 2: TÀI SẢN DÀI HẠN ===
+211:
+  name: "Tài sản cố định hữu hình"
+  type: "asset"
+  normal_balance: "debit"
+213:
+  name: "Tài sản cố định thuê tài chính"
+  type: "asset"
+  normal_balance: "debit"
+214:
+  name: "Hao mòn tài sản cố định"
+  type: "contra_asset"
+  normal_balance: "credit"
+242:
+  name: "Chi phí trả trước dài hạn"
+  type: "asset"
+  normal_balance: "debit"
+
+# === LOẠI 3: NỢ PHẢI TRẢ ===
+331:
+  name: "Phải trả cho người bán"
+  type: "liability"
+  normal_balance: "credit"
+333:
+  name: "Thuế và các khoản phải nộp nhà nước"
+  type: "liability"
+  normal_balance: "credit"
+3331:
+  name: "Thuế GTGT phải nộp"
+  type: "liability"
+  normal_balance: "credit"
+3332:
+  name: "Thuế tiêu thụ đặc biệt"
+  type: "liability"
+  normal_balance: "credit"
+3333:
+  name: "Thuế xuất, nhập khẩu"
+  type: "liability"
+  normal_balance: "credit"
+3334:
+  name: "Thuế thu nhập doanh nghiệp"
+  type: "liability"
+  normal_balance: "credit"
+3335:
+  name: "Thuế thu nhập cá nhân"
+  type: "liability"
+  normal_balance: "credit"
+3337:
+  name: "Thuế nhà đất, tiền thuê đất"
+  type: "liability"
+  normal_balance: "credit"
+3338:
+  name: "Phí, lệ phí và các khoản phải nộp khác"
+  type: "liability"
+  normal_balance: "credit"
+334:
+  name: "Phải trả người lao động"
+  type: "liability"
+  normal_balance: "credit"
+338:
+  name: "Phải trả, phải nộp khác"
+  type: "liability"
+  normal_balance: "credit"
+341:
+  name: "Vay ngắn hạn"
+  type: "liability"
+  normal_balance: "credit"
+342:
+  name: "Vay dài hạn"
+  type: "liability"
+  normal_balance: "credit"
+
+# === LOẠI 4: VỐN CHỦ SỞ HỮU ===
+411:
+  name: "Vốn đầu tư của chủ sở hữu"
+  type: "equity"
+  normal_balance: "credit"
+421:
+  name: "Lợi nhuận sau thuế chưa phân phối"
+  type: "equity"
+  normal_balance: "credit"
+
+# === LOẠI 5: DOANH THU ===
+511:
+  name: "Doanh thu bán hàng và cung cấp dịch vụ"
+  type: "revenue"
+  normal_balance: "credit"
+5111:
+  name: "Doanh thu bán hàng hóa"
+  type: "revenue"
+  normal_balance: "credit"
+5112:
+  name: "Doanh thu bán các thành phẩm"
+  type: "revenue"
+  normal_balance: "credit"
+5113:
+  name: "Doanh thu cung cấp dịch vụ"
+  type: "revenue"
+  normal_balance: "credit"
+515:
+  name: "Doanh thu hoạt động tài chính"
+  type: "revenue"
+  normal_balance: "credit"
+
+# === LOẠI 6: CHI PHÍ SẢN XUẤT KINH DOANH ===
+632:
+  name: "Giá vốn hàng bán"
+  type: "expense"
+  normal_balance: "debit"
+641:
+  name: "Chi phí bán hàng"
+  type: "expense"
+  normal_balance: "debit"
+642:
+  name: "Chi phí quản lý doanh nghiệp"
+  type: "expense"
+  normal_balance: "debit"
+
+# === LOẠI 8: CHI PHÍ KHÁC ===
+811:
+  name: "Chi phí khác"
+  type: "expense"
+  normal_balance: "debit"
+
+# === LOẠI 9: XÁC ĐỊNH KẾT QUẢ KINH DOANH ===
+911:
+  name: "Xác định kết quả kinh doanh"
+  type: "temporary"
+  normal_balance: "credit"
