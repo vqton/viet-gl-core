@@ -28,10 +28,18 @@ class Ledger:
         # 1. Validate trước khi ghi
         validate_journal_entry(entry, self.chart.accounts)
 
+        print(f"DEBUG LEDGER: Posting entry with {len(entry.lines)} lines")
+        for line in entry.lines:
+            print(f"DEBUG LEDGER: Line - {line.account_code}: debit={line.debit}, credit={line.credit}")
+
         # 2. Cập nhật số dư
         for line in entry.lines:
+            old_bal = self.balances[line.account_code].copy()
+            print(f"DEBUG LEDGER: Before update - {line.account_code}: D={old_bal['debit']}, C={old_bal['credit']}")
             self.balances[line.account_code]["debit"] += line.debit
             self.balances[line.account_code]["credit"] += line.credit
+            new_bal = self.balances[line.account_code].copy()
+            print(f"DEBUG LEDGER: After update - {line.account_code}: D={new_bal['debit']}, C={new_bal['credit']}")
 
         # 3. Lưu lại entry
         self.entries.append(entry)

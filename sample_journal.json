@@ -1,0 +1,18 @@
+{
+  "date": "2025-04-01",
+  "description": "Bán hàng thu tiền mặt",
+  "lines": [
+    {
+      "account_code": "1111",
+      "debit": 11000000
+    },
+    {
+      "account_code": "3331",
+      "credit": 1000000
+    },
+    {
+      "account_code": "5111",
+      "credit": 10000000
+    }
+  ]
+}
