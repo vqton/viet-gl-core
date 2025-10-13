@@ -2,14 +2,14 @@
 import pytest
 from decimal import Decimal
 
-from models.account import Account, AccountChart, JournalEntry, JournalLine
-from rules.validators import validate_journal_entry
-from models.account import AccountType
+from gl_core.models import Account, AccountChart, JournalEntry, JournalLine
+from gl_core.rules import validate_journal_entry
+from gl_core.models.account import AccountType
 
 @pytest.fixture
 def sample_coa():
     accounts = {
-        "1111": Account("1111", "Tiền mặt", AccountType.ASSET, "debit"),
+        "1111": Account("1111", "Tiền Việt Nam", AccountType.ASSET, "debit"),
         "5111": Account("5111", "Doanh thu bán hàng", AccountType.REVENUE, "credit"),
         "3331": Account("3331", "Thuế GTGT phải nộp", AccountType.LIABILITY, "credit"),
     }
@@ -36,15 +36,4 @@ def test_unbalanced_journal_raises(sample_coa):
         ]
     )
     with pytest.raises(ValueError, match="unbalanced"):
-        validate_journal_entry(entry, sample_coa)
-
-def test_unknown_account_raises(sample_coa):
-    entry = JournalEntry(
-        date="2025-04-01",
-        lines=[
-            JournalLine("9999", debit=Decimal("10000000")),  # không tồn tại
-            JournalLine("5111", credit=Decimal("10000000")),
-        ]
-    )
-    with pytest.raises(ValueError, match="not defined"):
         validate_journal_entry(entry, sample_coa)

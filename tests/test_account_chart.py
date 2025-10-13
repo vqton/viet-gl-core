@@ -2,10 +2,11 @@
 import pytest
 from pathlib import Path
 
-from models.account import AccountChart
+from gl_core.models import AccountChart
 
 def test_load_tt133_coa():
-    coa = AccountChart.from_yaml("config/tt133_coa.yaml")
+    config_path = Path(__file__).parent.parent / "gl_core" / "config" / "tt133_coa.yaml"
+    coa = AccountChart.from_yaml(str(config_path))
     
     # Kiểm tra số lượng tài khoản (ít nhất 30)
     assert len(coa.accounts) >= 30
