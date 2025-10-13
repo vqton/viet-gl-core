@@ -1,0 +1,18 @@
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "viet-gl-core"
+version = "0.1.0"
+description = "General Ledger engine for Vietnamese SMEs (TT 133)"
+authors = [{name = "Your Name", email = "you@example.com"}]
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gl_core*"]

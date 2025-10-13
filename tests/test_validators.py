@@ -2,8 +2,8 @@
 import pytest
 from decimal import Decimal
 
-from models import Account, AccountChart, JournalEntry, JournalLine
-from rules import validate_journal_entry
+from models.account import Account, AccountChart, JournalEntry, JournalLine
+from rules.validators import validate_journal_entry
 from models.account import AccountType
 
 @pytest.fixture
