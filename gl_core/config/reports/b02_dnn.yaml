@@ -1,0 +1,33 @@
+# gl_core/config/reports/b02_dnn.yaml
+report: B02-DNN
+name: "Báo cáo kết quả hoạt động kinh doanh"
+structure:
+  - group: "Doanh thu"
+    lines:
+      - label: "Doanh thu bán hàng và cung cấp dịch vụ"
+        accounts: ["5111"]  # Thay vì ["511"]
+        sign: "credit"
+
+  - group: "Giá vốn"
+    lines:
+      - label: "Giá vốn hàng bán"
+        accounts: ["632"]  # Không cần thay đổi
+        sign: "debit"
+
+  - group: "Chi phí"
+    lines:
+      - label: "Chi phí bán hàng"
+        accounts: ["641"]
+        sign: "debit"
+      - label: "Chi phí quản lý doanh nghiệp"
+        accounts: ["642"]
+        sign: "debit"
+      - label: "Chi phí khác"
+        accounts: ["811"]
+        sign: "debit"
+
+  - group: "Thu nhập khác"
+    lines:
+      - label: "Doanh thu hoạt động tài chính"
+        accounts: ["515"]
+        sign: "credit"
