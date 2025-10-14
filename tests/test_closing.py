@@ -55,13 +55,16 @@ def test_close_year(ledger_with_revenue_expense):
     expense_after = ledger.get_balance("632")
     equity_after = ledger.get_balance("421")
 
-    # Kiểm tra tài khoản doanh thu đã về 0
-    assert revenue_after["credit"] == Decimal("0")
-    assert revenue_after["debit"] == Decimal("0")
+    # Kiểm tra tài khoản doanh thu đã về 0 (số dư ròng = 0)
+    assert ledger.get_net_balance("5111") == Decimal("0")
+    # Tức là: Có 10tr, Nợ 10tr → số dư ròng = 0
+    assert revenue_after["debit"] == Decimal("10000000")
+    assert revenue_after["credit"] == Decimal("10000000")
 
-    # Kiểm tra tài khoản chi phí đã về 0
-    assert expense_after["debit"] == Decimal("0")
-    assert expense_after["credit"] == Decimal("0")
+    # Kiểm tra tài khoản chi phí đã về 0 (số dư ròng = 0)
+    assert ledger.get_net_balance("632") == Decimal("0")
+    assert expense_after["debit"] == Decimal("3000000")
+    assert expense_after["credit"] == Decimal("3000000")
 
     # Kiểm tra lợi nhuận sau thuế (doanh thu - chi phí) đã chuyển vào 421
     profit = revenue_before["credit"] - expense_before["debit"]  # 10tr - 3tr = 7tr

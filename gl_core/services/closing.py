@@ -26,23 +26,19 @@ def close_year(ledger: Ledger, year: int) -> JournalEntry:
             net_amount = balance["credit"] - balance["debit"]
             if net_amount > 0:
                 total_revenue += net_amount
-                revenue_accounts.append((acc_code, net_amount))
+                # Doanh thu có số dư bên Có → để về 0, cần Ghi Nợ
+                closing_lines.append(JournalLine(acc_code, debit=net_amount))
+                revenue_accounts.append(acc_code)
 
         elif acc.account_type == AccountType.EXPENSE:
             net_amount = balance["debit"] - balance["credit"]
             if net_amount > 0:
                 total_expense += net_amount
-                expense_accounts.append((acc_code, net_amount))
+                # Chi phí có số dư bên Nợ → để về 0, cần Ghi Có
+                closing_lines.append(JournalLine(acc_code, credit=net_amount))
+                expense_accounts.append(acc_code)
 
-    # Kết chuyển doanh thu: Nợ tài khoản doanh thu, Có 421
-    for acc_code, amount in revenue_accounts:
-        closing_lines.append(JournalLine(acc_code, debit=amount))
-
-    # Kết chuyển chi phí: Có tài khoản chi phí, Nợ 421
-    for acc_code, amount in expense_accounts:
-        closing_lines.append(JournalLine(acc_code, credit=amount))
-
-    # Tính lợi nhuận sau thuế
+    # Tính lợi nhuận sau thuế và ghi Có/Nợ 421
     profit = total_revenue - total_expense
 
     if profit > 0:

@@ -46,11 +46,24 @@ class Ledger:
 
     def get_balance(self, account_code: str) -> Dict[str, Decimal]:
         """
-        Lấy số dư hiện tại của tài khoản.
+        Lấy số dư hiện tại của tài khoản (Nợ/Có riêng biệt).
         """
         if account_code not in self.balances:
             return {"debit": Decimal(0), "credit": Decimal(0)}
         return self.balances[account_code].copy()
+
+    def get_net_balance(self, account_code: str) -> Decimal:
+        """
+        Lấy số dư ròng (Nợ - Có hoặc Có - Nợ tùy loại tài khoản).
+        """
+        balance = self.get_balance(account_code)
+        acc = self.chart.get(account_code)
+        if acc.normal_balance == "debit":
+            # Tài sản, chi phí: số dư ròng = Nợ - Có
+            return balance["debit"] - balance["credit"]
+        else:
+            # Nguồn vốn, doanh thu: số dư ròng = Có - Nợ
+            return balance["credit"] - balance["debit"]
 
     def get_trial_balance(self) -> Dict[str, Dict[str, Decimal]]:
         """
