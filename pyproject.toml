@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "viet-gl-core"
 version = "0.1.0"
 description = "General Ledger engine for Vietnamese SMEs (TT 133)"
-authors = [{name = "Your Name", email = "you@example.com"}]
+authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.9"
 dependencies = [
     "PyYAML>=6.0",
@@ -17,4 +17,4 @@ where = ["."]
 include = ["gl_core*"]
 
 [project.scripts]
-gl-cli = "gl_core.cli:main"
+gl-cli = "gl_core.cli.main"

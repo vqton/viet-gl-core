@@ -1,11 +1,29 @@
 # gl_core/cli/main.py
 import argparse
 import json
+import logging
 from pathlib import Path
 from decimal import Decimal
 
 from gl_core.models import AccountChart, Ledger, JournalEntry, JournalLine
-from gl_core.services import generate_balance_sheet, generate_income_statement
+from gl_core.services import generate_balance_sheet, generate_income_statement, close_year
+
+
+def setup_logging(level: str):
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+
+def decimal_serializer(obj):
+    """
+    Serializer để chuyển Decimal sang string khi xuất JSON.
+    """
+    if isinstance(obj, Decimal):
+        return float(obj)  # hoặc str(obj) nếu bạn muốn giữ nguyên giá trị
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 def load_ledger_with_coa():
@@ -17,11 +35,9 @@ def load_ledger_with_coa():
 def post_journal(args):
     ledger = load_ledger_with_coa()
 
-    # Load journal từ file
     with open(args.file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Parse journal
     lines = [
         JournalLine(
             account_code=line["account_code"],
@@ -32,7 +48,6 @@ def post_journal(args):
     ]
     entry = JournalEntry(date=data["date"], lines=lines, description=data.get("description", ""))
 
-    # Ghi vào ledger
     ledger.post(entry)
     print(f"✅ Ghi sổ thành công: {entry.date}")
 
@@ -40,11 +55,10 @@ def post_journal(args):
 def generate_report(args):
     ledger = load_ledger_with_coa()
 
-    # Ghi một số dữ liệu mẫu để test
+    # Ghi dữ liệu mẫu (để test)
     from gl_core.models import JournalEntry, JournalLine
     from decimal import Decimal
 
-    # Ghi sổ mẫu
     entry1 = JournalEntry(
         date="2025-04-01",
         lines=[
@@ -72,39 +86,71 @@ def generate_report(args):
         print("❌ Loại báo cáo không hỗ trợ")
         return
 
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    # Sử dụng serializer để chuyển Decimal sang float
+    print(json.dumps(report, ensure_ascii=False, indent=2, default=decimal_serializer))
 
 
-def close_year(args):
+def close_year_cli(args):
+    ledger = load_ledger_with_coa()
+
+    # Ghi dữ liệu mẫu (để test)
+    from gl_core.models import JournalEntry, JournalLine
+    from decimal import Decimal
+
+    entry1 = JournalEntry(
+        date=f"{args.year}-04-01",
+        lines=[
+            JournalLine("1111", debit=Decimal("10000000")),
+            JournalLine("5111", credit=Decimal("10000000")),
+        ]
+    )
+    entry2 = JournalEntry(
+        date=f"{args.year}-04-02",
+        lines=[
+            JournalLine("632", debit=Decimal("3000000")),
+            JournalLine("156", credit=Decimal("3000000")),
+        ]
+    )
+    ledger.post(entry1)
+    ledger.post(entry2)
+
     print(f"🔄 Đang kết chuyển năm {args.year}...")
-    # Sẽ hoàn thiện sau
-    print("✅ Kết chuyển hoàn tất (chưa thực hiện logic)")
+    closing_entry = close_year(ledger, int(args.year))
+    print(f"✅ Kết chuyển hoàn tất. Ghi sổ: {len(closing_entry.lines)} dòng.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="CLI tool cho GL engine Việt Nam")
+    
+    # Thêm subparsers
     subparsers = parser.add_subparsers(dest="command", help="Các lệnh hỗ trợ")
 
     # Lệnh ghi sổ
     post_parser = subparsers.add_parser("post", help="Ghi bút toán")
     post_parser.add_argument("--file", required=True, help="Đường dẫn file JSON chứa journal")
+    post_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Mức log")
 
     # Lệnh sinh báo cáo
     report_parser = subparsers.add_parser("report", help="Sinh báo cáo tài chính")
     report_parser.add_argument("--type", required=True, choices=["B01-DNN", "B02-DNN"], help="Loại báo cáo")
     report_parser.add_argument("--period", required=True, help="Kỳ báo cáo (ví dụ: 2025-Q1)")
+    report_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Mức log")
 
     # Lệnh kết chuyển cuối năm
     close_parser = subparsers.add_parser("close-year", help="Kết chuyển cuối năm")
     close_parser.add_argument("--year", required=True, help="Năm cần kết chuyển")
+    close_parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Mức log")
 
     args = parser.parse_args()
+
+    # Cấu hình logging dựa trên đối số của từng lệnh
+    setup_logging(getattr(args, 'log_level', 'INFO'))
 
     if args.command == "post":
         post_journal(args)
     elif args.command == "report":
         generate_report(args)
     elif args.command == "close-year":
-        close_year(args)
+        close_year_cli(args)
     else:
         parser.print_help()
