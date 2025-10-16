@@ -5,29 +5,78 @@ structure:
   - group: "Doanh thu"
     lines:
       - label: "Doanh thu bán hàng và cung cấp dịch vụ"
-        accounts: ["5111"]  # Thay vì ["511"]
+        code: "01"
+        accounts: ["511", "5111", "5112", "5113"]  # Doanh thu bán hàng và cung cấp dịch vụ
+        sign: "credit"
+      - label: "Doanh thu hoạt động tài chính"
+        code: "07"  # Theo mẫu chính thức, đây là dòng 07
+        accounts: ["515", "5151", "5152"]  # Doanh thu hoạt động tài chính
         sign: "credit"
 
   - group: "Giá vốn"
     lines:
       - label: "Giá vốn hàng bán"
-        accounts: ["632"]  # Không cần thay đổi
+        code: "02"
+        accounts: ["632"]  # Giá vốn hàng bán
         sign: "debit"
+
+  - group: "Lợi nhuận gộp"
+    lines:
+      - label: "Lợi nhuận gộp về bán hàng và cung cấp dịch vụ"
+        code: "03"
+        formula: "01 - 02"  # Dùng mã số, không dùng tên
 
   - group: "Chi phí"
     lines:
       - label: "Chi phí bán hàng"
-        accounts: ["641"]
+        code: "04"
+        accounts: ["641"]  # Chi phí bán hàng
         sign: "debit"
       - label: "Chi phí quản lý doanh nghiệp"
-        accounts: ["642"]
+        code: "05"
+        accounts: ["642"]  # Chi phí quản lý doanh nghiệp
         sign: "debit"
-      - label: "Chi phí khác"
-        accounts: ["811"]
+      - label: "Chi phí tài chính"
+        code: "08"
+        accounts: ["635", "6351", "6352"]  # Chi phí tài chính
+        sign: "debit"
+      - label: "Trong đó: Lãi vay phải trả"
+        code: "09"
+        accounts: ["6351"]  # Chi phí tài chính - Lãi vay
         sign: "debit"
 
-  - group: "Thu nhập khác"
+  - group: "Lợi nhuận khác"
     lines:
-      - label: "Doanh thu hoạt động tài chính"
-        accounts: ["515"]
+      - label: "Lợi nhuận khác"
+        code: "10"
+        accounts: ["711"]  # Thu nhập khác
         sign: "credit"
+
+  - group: "Lợi nhuận thuần từ HĐKD"
+    lines:
+      - label: "Lợi nhuận thuần từ hoạt động kinh doanh"
+        code: "06"
+        formula: "03 - 04 - 05"  # Lợi nhuận gộp - Chi phí bán hàng - Chi phí QLDN
+
+  - group: "Lợi nhuận trước thuế"
+    lines:
+      - label: "Lợi nhuận trước thuế"
+        code: "11"
+        formula: "06 + 07 - 08 + 10"  # Lợi nhuận thuần + Thu nhập TC - Chi phí TC + Lợi nhuận khác
+
+  - group: "Chi phí thuế TNDN"
+    lines:
+      - label: "Chi phí thuế TNDN hiện hành"
+        code: "12"
+        accounts: ["8211"]  # Chi phí thuế TNDN hiện hành
+        sign: "debit"
+      - label: "Chi phí thuế TNDN hoãn lại"
+        code: "13"
+        accounts: ["8212"]  # Chi phí thuế TNDN hoãn lại
+        sign: "debit"
+
+  - group: "Lợi nhuận sau thuế"
+    lines:
+      - label: "Lợi nhuận sau thuế thu nhập doanh nghiệp"
+        code: "14"
+        formula: "11 - 12 - 13"

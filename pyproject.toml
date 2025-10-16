@@ -18,3 +18,10 @@ include = ["gl_core*"]
 
 [project.scripts]
 gl-cli = "gl_core.cli.main"
+
+[tool.pytest.ini_options]
+markers = [
+    "performance: mark test as performance test",
+    "slow: mark tests as slow (deselect with '-m \"not slow\"')",
+    "serial",
+]

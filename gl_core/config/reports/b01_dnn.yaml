@@ -5,50 +5,77 @@ structure:
   - group: "A. TÀI SẢN NGẮN HẠN"
     lines:
       - label: "1. Tiền và các khoản tương đương tiền"
-        accounts: ["1111", "1121", "113"]  # Thay vì ["111", "112", "113"]
+        accounts: ["111", "1111", "1112", "112", "1121", "1122", "113"]
         sign: "debit"
       - label: "2. Các khoản đầu tư tài chính ngắn hạn"
         accounts: ["121", "128"]
         sign: "debit"
       - label: "3. Phải thu ngắn hạn"
-        accounts: ["131", "136", "138", "141"]
+        accounts: ["131", "1311", "1312", "1313", "136", "138", "141"]
         sign: "debit"
       - label: "4. Hàng tồn kho"
-        accounts: ["152", "153", "154", "155", "156", "157", "159"]
+        accounts: ["151", "1511", "1512", "1513", "152", "153", "154", "155", "156", "157", "159"]
         sign: "debit"
-      - label: "5. Tài sản ngắn hạn khác"
-        accounts: ["244"]
+      - label: "5. Chi phí trả trước ngắn hạn"
+        accounts: ["242"]
+        sign: "debit"
+      - label: "6. Tài sản ngắn hạn khác"
+        accounts: ["128"]  # hoặc tài khoản khác nếu có
         sign: "debit"
 
   - group: "B. TÀI SẢN DÀI HẠN"
     lines:
-      - label: "6. Tài sản cố định"
-        accounts: ["211", "213", "214"]
+      - label: "7. Tài sản cố định hữu hình"
+        accounts: ["211", "2111", "2112", "2113"]
         sign: "debit"
-      - label: "7. Tài sản dài hạn khác"
+      - label: "8. Tài sản cố định vô hình"
+        accounts: ["213", "2131", "2132"]
+        sign: "debit"
+      - label: "9. Bất động sản đầu tư"
+        accounts: ["217"]
+        sign: "debit"
+      - label: "10. Đầu tư tài chính dài hạn"
+        accounts: ["221", "2211", "2212"]
+        sign: "debit"
+      - label: "11. Chi phí trả trước dài hạn"
         accounts: ["242"]
+        sign: "debit"
+      - label: "12. Tài sản dài hạn khác"
+        accounts: ["228"]
         sign: "debit"
 
   - group: "C. NỢ PHẢI TRẢ"
     lines:
-      - label: "8. Phải trả người bán"
+      - label: "13. Phải trả người bán"
         accounts: ["331"]
         sign: "credit"
-      - label: "9. Người lao động"
+      - label: "14. Người lao động"
         accounts: ["334"]
         sign: "credit"
-      - label: "10. Thuế và các khoản phải nộp nhà nước"
-        accounts: ["3331", "3332", "3333", "3334", "3335", "3337", "3338"]
+      - label: "15. Thuế và các khoản phải nộp nhà nước"
+        accounts: ["333", "3331", "3332", "3333", "3334", "3335", "3337", "3338"]
         sign: "credit"
-      - label: "11. Phải trả khác"
+      - label: "16. Phải trả khác"
         accounts: ["338"]
+        sign: "credit"
+      - label: "17. Vay và nợ ngắn hạn"
+        accounts: ["311"]
+        sign: "credit"
+      - label: "18. Nợ dài hạn"
+        accounts: ["315"]
         sign: "credit"
 
   - group: "D. VỐN CHỦ SỞ HỮU"
     lines:
-      - label: "12. Vốn đầu tư của chủ sở hữu"
+      - label: "19. Vốn đầu tư của chủ sở hữu"
         accounts: ["411"]
         sign: "credit"
-      - label: "13. Lợi nhuận sau thuế chưa phân phối"
+      - label: "20. Quỹ đầu tư phát triển"
+        accounts: ["414"]
+        sign: "credit"
+      - label: "21. Thặng dư vốn cổ phần"
+        accounts: ["418"]
+        sign: "credit"
+      - label: "22. Lợi nhuận sau thuế chưa phân phối"
         accounts: ["421"]
         sign: "credit"

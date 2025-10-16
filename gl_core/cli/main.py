@@ -19,14 +19,17 @@ def setup_logging(level: str):
 
 def decimal_serializer(obj):
     """
-    Serializer để chuyển Decimal sang string khi xuất JSON.
+    Serializer to convert Decimal to string for JSON output.
     """
     if isinstance(obj, Decimal):
-        return float(obj)  # hoặc str(obj) nếu bạn muốn giữ nguyên giá trị
+        return str(obj)  # Use str to preserve precision
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 def load_ledger_with_coa():
+    """
+    Load the ledger with the Chart of Accounts (COA).
+    """
     coa_path = Path(__file__).parent.parent / "config" / "tt133_coa.yaml"
     coa = AccountChart.from_yaml(str(coa_path))
     return Ledger(coa)
@@ -55,27 +58,7 @@ def post_journal(args):
 def generate_report(args):
     ledger = load_ledger_with_coa()
 
-    # Ghi dữ liệu mẫu (để test)
-    from gl_core.models import JournalEntry, JournalLine
-    from decimal import Decimal
-
-    entry1 = JournalEntry(
-        date="2025-04-01",
-        lines=[
-            JournalLine("1111", debit=Decimal("10000000")),
-            JournalLine("5111", credit=Decimal("10000000")),
-        ]
-    )
-    entry2 = JournalEntry(
-        date="2025-04-02",
-        lines=[
-            JournalLine("632", debit=Decimal("3000000")),
-            JournalLine("156", credit=Decimal("3000000")),
-        ]
-    )
-    ledger.post(entry1)
-    ledger.post(entry2)
-
+    # Loại bỏ dữ liệu mẫu, chỉ sử dụng dữ liệu thực tế từ ledger
     if args.type == "B01-DNN":
         config_path = Path(__file__).parent.parent / "config" / "reports" / "b01_dnn.yaml"
         report = generate_balance_sheet(ledger, str(config_path), period=args.period)
@@ -86,34 +69,14 @@ def generate_report(args):
         print("❌ Loại báo cáo không hỗ trợ")
         return
 
-    # Sử dụng serializer để chuyển Decimal sang float
+    # Sử dụng serializer để chuyển Decimal sang string
     print(json.dumps(report, ensure_ascii=False, indent=2, default=decimal_serializer))
 
 
 def close_year_cli(args):
     ledger = load_ledger_with_coa()
 
-    # Ghi dữ liệu mẫu (để test)
-    from gl_core.models import JournalEntry, JournalLine
-    from decimal import Decimal
-
-    entry1 = JournalEntry(
-        date=f"{args.year}-04-01",
-        lines=[
-            JournalLine("1111", debit=Decimal("10000000")),
-            JournalLine("5111", credit=Decimal("10000000")),
-        ]
-    )
-    entry2 = JournalEntry(
-        date=f"{args.year}-04-02",
-        lines=[
-            JournalLine("632", debit=Decimal("3000000")),
-            JournalLine("156", credit=Decimal("3000000")),
-        ]
-    )
-    ledger.post(entry1)
-    ledger.post(entry2)
-
+    # Loại bỏ dữ liệu mẫu, chỉ sử dụng dữ liệu thực tế từ ledger
     print(f"🔄 Đang kết chuyển năm {args.year}...")
     closing_entry = close_year(ledger, int(args.year))
     print(f"✅ Kết chuyển hoàn tất. Ghi sổ: {len(closing_entry.lines)} dòng.")
