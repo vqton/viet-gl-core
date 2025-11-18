@@ -1,134 +1,65 @@
-TT99ACCT: Hệ thống Kế toán Việt Nam theo Thông tư 99
+# **TT99ACCT: Hệ thống Kế toán Việt Nam theo Thông tư 99**
 
-🇻🇳 Giới thiệu Dự án
+## **🇻🇳 Tổng quan Dự án**
 
-TT99ACCT là một dự án mã nguồn mở nhằm triển khai một hệ thống phần mềm kế toán cấp doanh nghiệp, tuân thủ nghiêm ngặt Thông tư 99/2021/TT-BTC (Chế độ kế toán Doanh nghiệp).
+**TT99ACCT** là một dự án phần mềm mã nguồn mở được thiết kế nhằm mục đích triển khai hệ thống kế toán doanh nghiệp. Mục tiêu chính của dự án là đảm bảo **tuân thủ nghiêm ngặt các quy định của Thông tư 99/2021/TT-BTC** (Chế độ kế toán Doanh nghiệp tại Việt Nam).
 
-Dự án được xây dựng dựa trên kiến trúc hiện đại, tập trung vào hiệu suất, tính toàn vẹn dữ liệu (ACID), và khả năng bảo trì mã nguồn dài hạn.
+Hệ thống được xây dựng trên nền tảng công nghệ hiện đại, chú trọng vào **hiệu suất xử lý cao**, **tính toàn vẹn dữ liệu** (ACID), và **khả năng bảo trì** dài hạn thông qua kiến trúc phân lớp rõ ràng.
 
-🎯 Mục tiêu và Triết lý Kiến trúc
+## **🎯 Mục tiêu và Nguyên tắc Kiến trúc**
 
-Hệ thống được thiết kế theo các nguyên tắc sau:
+Triết lý kiến trúc của hệ thống được xác định dựa trên ba nguyên tắc cốt lõi:
 
-Clean Architecture: Tách biệt triệt để Logic Nghiệp vụ (Domain) khỏi các lớp Hạ tầng (Infrastructure) và Giao diện (Presentation).
+1. **Clean Architecture (Kiến trúc Sạch):** Đảm bảo sự phân tách rõ ràng giữa Lớp Nghiệp vụ (Domain) và các Lớp Hạ tầng (Infrastructure) hoặc Giao diện (Presentation). Phương pháp này giúp tăng cường khả năng kiểm thử và thay thế các thành phần.  
+2. **CQRS (Tách biệt Trách nhiệm Ghi và Truy vấn):** Áp dụng mô hình Command Query Responsibility Segregation để tối ưu hóa hiệu suất. Luồng Ghi dữ liệu (Commands \- Ghi sổ) và luồng Truy vấn dữ liệu (Queries \- Báo cáo) được xử lý độc lập.  
+3. **Tuân thủ TT99 Tuyệt đối:** Lớp TT99.DMN (Domain) chịu trách nhiệm chứa và thực thi toàn bộ logic nghiệp vụ kế toán, bao gồm quy tắc hạch toán Nợ/Có và tính toán báo cáo theo quy định hiện hành của Việt Nam.
 
-CQRS (Command Query Responsibility Segregation): Tách biệt luồng Ghi dữ liệu (Commands - Ghi sổ) và luồng Đọc dữ liệu (Queries - Báo cáo) để tối ưu hóa hiệu suất.
+## **⚙️ Công nghệ Triển khai**
 
-Tuân thủ TT99: Lớp TT99.DMN chứa tất cả các quy tắc hạch toán Nợ/Có, tính toán số dư và quy tắc báo cáo theo chuẩn Việt Nam.
+Dự án sử dụng các công nghệ sau nhằm đảm bảo hiệu suất và độ tin cậy của hệ thống:
 
-⚙️ Công nghệ và Yêu cầu
+| Công nghệ | Vai trò | Ghi chú |
+| :---- | :---- | :---- |
+| **Ngôn ngữ** | C\# | Ngôn ngữ tĩnh (Static Typing) nhằm đảm bảo tính chính xác và hiệu suất xử lý cao. |
+| **Framework** | ASP.NET Core Web API | Cung cấp các điểm cuối API hiệu suất cao cho Lớp Presentation. |
+| **Database** | PostgreSQL / SQL Server | Cơ sở dữ liệu quan hệ được lựa chọn để duy trì tính toàn vẹn (ACID) của dữ liệu kế toán. |
+| **ORM** | Entity Framework Core (EF Core) | Công cụ ORM để quản lý Persistence Layer và quá trình Database Migration. |
+| **Thư viện chính** | MediatR, FluentValidation | Triển khai mô hình CQRS và đảm bảo xác thực dữ liệu đầu vào. |
+| **Hosting** | Docker/Linux | Tối ưu hóa cho môi trường container hóa và triển khai Cloud linh hoạt. |
 
-Công nghệ
+## **📁 Cấu trúc Project (Tuân thủ Quy tắc 8 Ký tự)**
 
-Vai trò
+Cấu trúc dự án tuân thủ Clean Architecture và sử dụng các ký hiệu rút gọn (tối đa 8 ký tự) để định danh các lớp:
 
-Ghi chú
+| Project | Ký hiệu | Vai trò |
+| :---- | :---- | :---- |
+| **TT99.DMN** | Domain | Chứa các Entities, Giá trị, và Logic nghiệp vụ Kế toán TT99. |
+| **TT99.APPL** | Application | Xử lý và điều phối các Commands và Queries. |
+| **TT99.INFR** | Infrastructure | Chứa Repositories, DB Context, và các dịch vụ hạ tầng. |
+| **TT99.PRES** | Presentation | Điểm cuối API (RESTful Endpoints). |
 
-Ngôn ngữ
+## **🚀 Hướng dẫn Thiết lập và Vận hành**
 
-C#
+Yêu cầu tiên quyết là phải cài đặt **.NET SDK** phiên bản mới nhất.
 
-Đảm bảo tính an toàn (Type Safety) và hiệu suất cao.
+1. **Sao chép Mã nguồn (Clone Repository):**  
+   git clone \[https://github.com/vqton/tt99acct.git\](https://github.com/vqton/tt99acct.git)  
+   cd tt99acct
 
-Framework
+2. **Khôi phục các Gói Phụ thuộc:**  
+   dotnet restore
 
-ASP.NET Core Web API
+3. **Thiết lập Cơ sở Dữ liệu:**  
+   * Cần điều chỉnh chuỗi kết nối (Connection String) trong file cấu hình appsettings.json của project TT99.PRES.  
+   * Thực hiện cập nhật lược đồ cơ sở dữ liệu (sẽ được xây dựng sau):
 
-Xây dựng API tốc độ cao (Presentation Layer).
+dotnet ef database update \--project TT99.INFR
 
-Database
+4. **Khởi chạy Ứng dụng:**  
+   dotnet run \--project TT99.PRES
 
-PostgreSQL / SQL Server
+   Dịch vụ API sẽ được kích hoạt, thường tại cổng http://localhost:5000 hoặc http://localhost:5001.
 
-Cơ sở dữ liệu quan hệ cho tính toàn vẹn tuyệt đối.
+## **🤝 Đóng góp và Hợp tác**
 
-ORM
-
-Entity Framework Core (EF Core)
-
-Quản lý kết nối Database và Migrations.
-
-Thư viện chính
-
-MediatR, FluentValidation
-
-Triển khai CQRS và Xác thực đầu vào.
-
-Hosting
-
-Docker/Linux
-
-Tối ưu hóa cho môi trường containerization.
-
-📁 Cấu trúc Project (Quy tắc 8 Ký tự)
-
-Dự án được tổ chức thành 4 layers chính theo kiến trúc sạch, tuân thủ quy tắc đặt tên 8 ký tự:
-
-Project
-
-Ký hiệu
-
-Vai trò
-
-TT99.DMN
-
-Domain
-
-Lõi chứa Entities, Interfaces, và Logic Kế toán TT99.
-
-TT99.APPL
-
-Application
-
-Chứa Commands, Queries, và Handlers (Triển khai CQRS).
-
-TT99.INFR
-
-Infrastructure
-
-Chứa EF Core Context, Repositories, và Triển khai Database.
-
-TT99.PRES
-
-Presentation
-
-ASP.NET Core Web API Endpoints.
-
-🚀 Hướng dẫn Thiết lập Ban đầu
-
-Đảm bảo bạn đã cài đặt .NET SDK mới nhất.
-
-Clone Dự án:
-
-git clone [https://github.com/vqton/tt99acct.git](https://github.com/vqton/tt99acct.git)
-cd tt99acct
-
-
-
-Restore Dependencies:
-
-dotnet restore
-
-
-
-Cấu hình Database:
-
-Cập nhật chuỗi kết nối (Connection String) trong file appsettings.json của project TT99.PRES (hoặc TT99.INFR).
-
-Áp dụng Migrations (sẽ được xây dựng sau):
-
-dotnet ef database update --project TT99.INFR
-
-
-
-Chạy Ứng dụng:
-
-dotnet run --project TT99.PRES
-
-
-
-API sẽ khởi động, thường là tại http://localhost:5000 hoặc http://localhost:5001.
-
-🤝 Đóng góp
-
-Chúng tôi hoan nghênh mọi đóng góp để cải thiện tính tuân thủ và mở rộng của hệ thống kế toán này. Vui lòng tạo một Issue hoặc gửi Pull Request cho các tính năng mới hoặc sửa lỗi.
+Dự án khuyến khích sự đóng góp từ cộng đồng nhằm mở rộng và cải thiện chất lượng mã nguồn. Mọi đề xuất tính năng mới, báo cáo lỗi hoặc yêu cầu cải tiến có thể được gửi thông qua **Issues** hoặc **Pull Requests**.
