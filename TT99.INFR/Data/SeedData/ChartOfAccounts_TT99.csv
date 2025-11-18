@@ -1,0 +1,15 @@
+AccountNumber,AccountName,Type
+111,Tiền mặt,Asset
+112,Tiền gửi Ngân hàng,Asset
+131,Phải thu của khách hàng,Asset
+152,Nguyên liệu, vật liệu,Asset
+211,Tài sản cố định,Asset
+331,Phải trả cho người bán,Liability
+333,Thuế và các khoản phải nộp NN,Liability
+411,Vốn đầu tư của chủ sở hữu,Equity
+511,Doanh thu bán hàng và CCDV,Revenue
+621,Chi phí NVL trực tiếp,Expense
+641,Chi phí bán hàng,Expense
+642,Chi phí QL doanh nghiệp,Expense
+911,Xác định kết quả kinh doanh,Other
+# Add more rows as needed...
