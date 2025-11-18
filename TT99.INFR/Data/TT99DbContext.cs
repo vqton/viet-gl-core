@@ -29,7 +29,7 @@ namespace TT99.INFR.Data
         {
             base.OnModelCreating(modelBuilder);
             
-            // === Cấu hình Entity Account ===
+            // === Cấu hình Entity Account (Updated for TT99 Hierarchy) ===
             modelBuilder.Entity<Account>(entity =>
             {
                 // Key chính: AccountNumber
@@ -38,7 +38,17 @@ namespace TT99.INFR.Data
                 entity.Property(e => e.AccountName).IsRequired().HasMaxLength(256);
                 
                 // Ánh xạ AccountType (Giả định là Enum hoặc Value Object) sang string trong DB
-                entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(30); 
+                entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(30);
+
+                // Cấu hình các thuộc tính mới cho TT99 Hierarchy
+                entity.Property(e => e.Level).IsRequired();
+                entity.Property(e => e.ParentAccountNumber).HasMaxLength(20);
+
+                // Optional: Cấu hình quan hệ cha-con (nếu cần cho truy vấn phức tạp sau này)
+                // entity.HasOne<Account>() // TK con
+                //      .WithMany() // Không có collection TK con trong Account nếu không cần
+                //      .HasForeignKey(e => e.ParentAccountNumber)
+                //      .OnDelete(DeleteBehavior.NoAction); // Tránh xóa cha làm mất con
             });
 
             // === Cấu hình Entity JournalEntry (Aggregate Root) ===
@@ -68,124 +78,259 @@ namespace TT99.INFR.Data
                 });
             });
             
-            // === SEEDING DỮ LIỆU DANH MỤC TÀI KHOẢN (TT99) ===
+            // === SEEDING DỮ LIỆU DANH MỤC TÀI KHOẢN (TT99 - Cập nhật với cấp độ và tài khoản cha) ===
             // Ghi chú: Sử dụng AccountType Enum đã định nghĩa trong TT99.DMN/Ents/Account.cs
+            // Sử dụng constructor mới của Account: Account(number, name, type, level, parentNumber, isSummary)
             modelBuilder.Entity<Account>().HasData(
-                // --- Loại 1 - TÀI SẢN NGẮN HẠN (CURRENT ASSETS) ---
-                // 11 - Tiền và các khoản tương đương tiền
-                new Account("111", "Tiền mặt", AccountType.Asset),
-                new Account("112", "Tiền gửi ngân hàng", AccountType.Asset),
-                new Account("113", "Tiền đang chuyển", AccountType.Asset),
+                // --- A. LOẠI TÀI KHOẢN TÀI SẢN (Asset Accounts) ---
+                // TK cấp 1
+                new Account("111", "Tiền mặt", AccountType.Asset, 1, null, true),
+                new Account("112", "Tiền gửi không kỳ hạn", AccountType.Asset, 1, null, true),
+                new Account("113", "Tiền đang chuyển", AccountType.Asset, 1, null, true),
+                new Account("121", "Chứng khoán kinh doanh", AccountType.Asset, 1, null, true),
+                new Account("128", "Đầu tư nắm giữ đến ngày đáo hạn", AccountType.Asset, 1, null, true),
+                new Account("131", "Phải thu của khách hàng", AccountType.Asset, 1, null, true),
+                new Account("133", "Thuế GTGT được khấu trừ", AccountType.Asset, 1, null, true),
+                new Account("136", "Phải thu nội bộ", AccountType.Asset, 1, null, true),
+                new Account("138", "Phải thu khác", AccountType.Asset, 1, null, true),
+                new Account("141", "Tạm ứng", AccountType.Asset, 1, null, true),
+                new Account("151", "Hàng mua đang đi đường", AccountType.Asset, 1, null, true),
+                new Account("152", "Nguyên liệu, vật liệu", AccountType.Asset, 1, null, true),
+                new Account("153", "Công cụ, dụng cụ", AccountType.Asset, 1, null, true),
+                new Account("154", "Chi phí sản xuất, kinh doanh dở dang", AccountType.Asset, 1, null, true),
+                new Account("155", "Sản phẩm", AccountType.Asset, 1, null, true),
+                new Account("156", "Hàng hóa", AccountType.Asset, 1, null, true),
+                new Account("157", "Hàng gửi đi bán", AccountType.Asset, 1, null, true),
+                new Account("158", "Nguyên liệu, vật tư tại kho bảo thuế", AccountType.Asset, 1, null, true),
+                new Account("171", "Giao dịch mua, bán lại trái phiếu chính phủ", AccountType.Asset, 1, null, true),
+                new Account("211", "Tài sản cố định hữu hình", AccountType.Asset, 1, null, true),
+                new Account("212", "Tài sản cố định thuê tài chính", AccountType.Asset, 1, null, true),
+                new Account("213", "Tài sản cố định vô hình", AccountType.Asset, 1, null, true),
+                new Account("214", "Hao mòn tài sản cố định", AccountType.Expense, 1, null, true), // Loại trừ
+                new Account("215", "Tài sản sinh học", AccountType.Asset, 1, null, true),
+                new Account("217", "Bất động sản đầu tư", AccountType.Asset, 1, null, true),
+                new Account("221", "Đầu tư vào công ty con", AccountType.Asset, 1, null, true),
+                new Account("222", "Đầu tư vào công ty liên doanh, liên kết", AccountType.Asset, 1, null, true),
+                new Account("228", "Đầu tư khác", AccountType.Asset, 1, null, true),
+                new Account("229", "Dự phòng tổn thất tài sản", AccountType.Asset, 1, null, true), // Often treated as contra-asset
+                new Account("241", "Xây dựng cơ bản dở dang", AccountType.Asset, 1, null, true),
+                new Account("242", "Chi phí chờ phân bổ", AccountType.Asset, 1, null, true),
+                new Account("243", "Tài sản thuế thu nhập hoãn lại", AccountType.Asset, 1, null, true),
+                new Account("244", "Ký quỹ, ký cược", AccountType.Asset, 1, null, true),
 
-                // 12 - Các khoản đầu tư tài chính ngắn hạn
-                new Account("121", "Chứng khoán kinh doanh", AccountType.Asset),
-                new Account("128", "Đầu tư nắm giữ đến ngày đáo hạn", AccountType.Asset),
+                // TK cấp 2 cho 128
+                new Account("1281", "Tiền gửi có kỳ hạn", AccountType.Asset, 2, "128", false),
+                new Account("1282", "Trái phiếu", AccountType.Asset, 2, "128", false),
+                new Account("1283", "Cho vay", AccountType.Asset, 2, "128", false),
+                new Account("1288", "Các khoản đầu tư khác nắm giữ đến ngày đáo hạn", AccountType.Asset, 2, "128", false),
 
-                // 13 - Các khoản phải thu
-                new Account("131", "Phải thu của khách hàng", AccountType.Asset),
-                new Account("133", "Thuế GTGT được khấu trừ", AccountType.Asset),
-                new Account("136", "Phải thu nội bộ", AccountType.Asset),
-                new Account("138", "Phải thu khác", AccountType.Asset),
+                // TK cấp 2 cho 133
+                new Account("1331", "Thuế GTGT được khấu trừ của hàng hóa, dịch vụ", AccountType.Asset, 2, "133", false),
+                new Account("1332", "Thuế GTGT được khấu trừ của TSCĐ", AccountType.Asset, 2, "133", false),
 
-                // 14 - Hàng tồn kho
-                new Account("141", "Tạm ứng", AccountType.Asset),
-                new Account("142", "Chi phí trả trước", AccountType.Asset),
-                new Account("151", "Hàng mua đang đi đường", AccountType.Asset),
-                new Account("152", "Nguyên liệu, vật liệu", AccountType.Asset),
-                new Account("153", "Công cụ, dụng cụ", AccountType.Asset),
-                new Account("154", "Chi phí sản xuất, kinh doanh dở dang", AccountType.Asset),
-                new Account("155", "Thành phẩm", AccountType.Asset),
-                new Account("156", "Hàng hóa", AccountType.Asset),
-                new Account("157", "Hàng gửi đi bán", AccountType.Asset),
+                // TK cấp 2 cho 136
+                new Account("1361", "Vốn kinh doanh ở đơn vị trực thuộc", AccountType.Asset, 2, "136", false),
+                new Account("1362", "Phải thu nội bộ về chênh lệch tỷ giá", AccountType.Asset, 2, "136", false),
+                new Account("1363", "Phải thu nội bộ về chi phí đi vay đủ điều kiện được vốn hóa", AccountType.Asset, 2, "136", false),
+                new Account("1368", "Phải thu nội bộ khác", AccountType.Asset, 2, "136", false),
 
-                // 17 - Tài sản ngắn hạn khác
-                new Account("171", "Gửi giữ kinh doanh chứng khoán", AccountType.Asset),
+                // TK cấp 2 cho 138
+                new Account("1381", "Tài sản thiếu chờ xử lý", AccountType.Asset, 2, "138", false),
+                new Account("1388", "Phải thu khác", AccountType.Asset, 2, "138", false),
 
-                // --- Loại 2 - TÀI SẢN DÀI HẠN (NON-CURRENT ASSETS) ---
-                // 21 - Tài sản cố định
-                new Account("211", "Tài sản cố định hữu hình", AccountType.Asset),
-                new Account("213", "Tài sản cố định vô hình", AccountType.Asset),
-                new Account("214", "Hao mòn tài sản cố định", AccountType.Asset), // Loại trừ
+                // TK cấp 2 cho 214
+                new Account("2141", "Hao mòn TSCĐ hữu hình", AccountType.Expense, 2, "214", false), // Loại trừ
+                new Account("2142", "Hao mòn TSCĐ thuê tài chính", AccountType.Expense, 2, "214", false), // Loại trừ
+                new Account("2143", "Hao mòn TSCĐ vô hình", AccountType.Expense, 2, "214", false), // Loại trừ
+                new Account("2147", "Hao mòn BĐSĐT", AccountType.Expense, 2, "214", false), // Loại trừ
 
-                // 22 - Đầu tư tài chính dài hạn
-                new Account("221", "Đầu tư vào công ty liên kết, liên doanh", AccountType.Asset),
-                new Account("222", "Đầu tư góp vốn vào đơn vị khác", AccountType.Asset),
+                // TK cấp 2 cho 215
+                new Account("2151", "Súc vật nuôi cho sản phẩm định kỳ", AccountType.Asset, 2, "215", false),
+                new Account("21511", "Súc vật nuôi cho sản phẩm định kỳ chưa đạt đến giai đoạn trưởng thành", AccountType.Asset, 3, "2151", false),
+                new Account("21512", "Súc vật nuôi cho sản phẩm định kỳ đạt đến giai đoạn trưởng thành", AccountType.Asset, 3, "2151", false),
+                new Account("2152", "Súc vật nuôi lấy sản phẩm một lần", AccountType.Asset, 2, "215", false),
+                new Account("21521", "Súc vật nuôi lấy sản phẩm một lần", AccountType.Asset, 3, "2152", false),
+                new Account("2153", "Cây trồng theo mùa vụ hoặc lấy sản phẩm một lần", AccountType.Asset, 2, "215", false),
 
-                // 24 - Tài sản dở dang dài hạn
-                new Account("241", "Xây dựng cơ bản dở dang", AccountType.Asset),
-                new Account("242", "Bất động sản đầu tư dở dang", AccountType.Asset),
+                // TK cấp 2 cho 228
+                new Account("2281", "Đầu tư góp vốn vào đơn vị khác", AccountType.Asset, 2, "228", false),
+                new Account("2282", "Đầu tư khác", AccountType.Asset, 2, "228", false),
 
-                // 27 - Tài sản dài hạn khác
-                new Account("271", "Gửi giữ kinh doanh chứng khoán (dài hạn)", AccountType.Asset),
-                new Account("272", "Ký quỹ, ký cược dài hạn", AccountType.Asset),
+                // TK cấp 2 cho 229
+                new Account("2291", "Dự phòng giảm giá chứng khoán kinh doanh", AccountType.Asset, 2, "229", false), // Often treated as contra-asset
+                new Account("2292", "Dự phòng tổn thất đầu tư vào đơn vị khác", AccountType.Asset, 2, "229", false), // Often treated as contra-asset
+                new Account("2293", "Dự phòng tổn thất các khoản đầu tư tài chính khác", AccountType.Asset, 2, "229", false), // Often treated as contra-asset
+                new Account("2294", "Dự phòng giảm giá hàng tồn kho", AccountType.Asset, 2, "229", false), // Often treated as contra-asset
+                new Account("2295", "Dự phòng tổn thất tài sản sinh học", AccountType.Asset, 2, "229", false), // Often treated as contra-asset
 
-                // --- Loại 3 - NỢ PHẢI TRẢ (LIABILITIES) ---
-                // 31 - Phải trả ngắn hạn
-                new Account("311", "Phải trả cho người bán", AccountType.Liability),
-                new Account("315", "Vay ngắn hạn", AccountType.Liability),
-                new Account("331", "Phải trả người lao động", AccountType.Liability),
-                new Account("333", "Thuế và các khoản phải nộp nhà nước", AccountType.Liability),
-                new Account("334", "Phải trả người mua", AccountType.Liability),
-                new Account("335", "Chi phí phải trả", AccountType.Liability),
-                new Account("336", "Phải trả nội bộ", AccountType.Liability),
-                new Account("337", "Phải trả khách hàng", AccountType.Liability),
-                new Account("338", "Phải trả khác", AccountType.Liability),
+                // TK cấp 2 cho 241
+                new Account("2411", "Mua sắm TSCĐ", AccountType.Asset, 2, "241", false),
+                new Account("2412", "Xây dựng cơ bản", AccountType.Asset, 2, "241", false),
+                new Account("2413", "Sửa chữa, bảo dưỡng định kỳ TSCĐ", AccountType.Asset, 2, "241", false),
+                new Account("2414", "Nâng cấp, cải tạo TSCĐ", AccountType.Asset, 2, "241", false),
 
-                // 34 - Phải trả dài hạn
-                new Account("341", "Vay dài hạn", AccountType.Liability),
-                new Account("343", "Trái phiếu phát hành", AccountType.Liability),
-                new Account("344", "Nhận ký quỹ dài hạn", AccountType.Liability),
+                // --- B. LOẠI TÀI KHOẢN NỢ PHẢI TRẢ (Liability Accounts) ---
+                // TK cấp 1
+                new Account("331", "Phải trả cho người bán", AccountType.Liability, 1, null, true),
+                new Account("332", "Phải trả cổ tức, lợi nhuận", AccountType.Liability, 1, null, true),
+                new Account("333", "Thuế và các khoản phải nộp Nhà nước", AccountType.Liability, 1, null, true),
+                new Account("334", "Phải trả người lao động", AccountType.Liability, 1, null, true),
+                new Account("336", "Phải trả nội bộ", AccountType.Liability, 1, null, true),
+                new Account("337", "Thanh toán tiền theo hợp đồng xây dựng", AccountType.Liability, 1, null, true),
+                new Account("338", "Phải trả, phải nộp khác", AccountType.Liability, 1, null, true),
+                new Account("341", "Vay và nợ thuê tài chính", AccountType.Liability, 1, null, true),
+                new Account("343", "Trái phiếu phát hành", AccountType.Liability, 1, null, true),
+                new Account("344", "Nhận ký quỹ, ký cược", AccountType.Liability, 1, null, true),
+                new Account("347", "Thuế thu nhập hoãn lại phải trả", AccountType.Liability, 1, null, true),
+                new Account("352", "Dự phòng phải trả", AccountType.Liability, 1, null, true),
+                new Account("353", "Quỹ khen thưởng, phúc lợi", AccountType.Liability, 1, null, true), // Listed as Liability in TT99
+                new Account("356", "Quỹ phát triển khoa học và công nghệ", AccountType.Liability, 1, null, true), // Listed as Liability in TT99
+                new Account("357", "Quỹ bình ổn giá", AccountType.Liability, 1, null, true), // Listed as Liability in TT99
 
-                // --- Loại 4 - VỐN CHỦ SỞ HỮU (EQUITY) ---
-                new Account("411", "Vốn đầu tư của chủ sở hữu", AccountType.Equity),
-                new Account("412", "Thặng dư vốn cổ phần", AccountType.Equity), // hoặc Quỹ phát hành
-                new Account("413", "Chênh lệch tỷ giá hối đoái", AccountType.Equity),
-                new Account("414", "Quỹ đầu tư phát triển", AccountType.Equity),
-                new Account("415", "Quỹ hỗ trợ sắp xếp doanh nghiệp", AccountType.Equity),
-                new Account("417", "Quỹ khen thưởng, phúc lợi", AccountType.Equity),
-                new Account("418", "Quỹ bình ổn giá", AccountType.Equity),
-                new Account("419", "Vốn góp của thành viên", AccountType.Equity), // cho Công ty TNHH
-                new Account("421", "Lợi nhuận sau thuế chưa phân phối", AccountType.Equity),
+                // TK cấp 2 cho 333
+                new Account("3331", "Thuế GTGT phải nộp", AccountType.Liability, 2, "333", false),
+                new Account("3332", "Thuế tiêu thụ đặc biệt", AccountType.Liability, 2, "333", false),
+                new Account("3333", "Thuế xuất, nhập khẩu", AccountType.Liability, 2, "333", false),
+                new Account("3334", "Thuế thu nhập doanh nghiệp", AccountType.Liability, 2, "333", false),
+                new Account("3335", "Thuế thu nhập cá nhân", AccountType.Liability, 2, "333", false),
+                new Account("3336", "Thuế tài nguyên", AccountType.Liability, 2, "333", false),
+                new Account("3337", "Thuế đất, tiền thuê đất", AccountType.Liability, 2, "333", false),
+                new Account("3338", "Thuế bảo vệ môi trường", AccountType.Liability, 2, "333", false),
+                new Account("3339", "Phí, lệ phí và các khoản phải nộp khác", AccountType.Liability, 2, "333", false),
 
-                // --- Loại 5 - DOANH THU (REVENUE) ---
-                new Account("511", "Doanh thu bán hàng và cung cấp dịch vụ", AccountType.Revenue),
-                new Account("515", "Doanh thu hoạt động tài chính", AccountType.Revenue),
-                new Account("521", "Các khoản giảm trừ doanh thu", AccountType.Expense), // Loại trừ
-                new Account("531", "Hàng bán bị trả lại", AccountType.Expense), // Loại trừ (nếu hạch toán riêng)
-                new Account("532", "Chiết khấu thương mại", AccountType.Expense), // Loại trừ (nếu hạch toán riêng)
+                // TK cấp 2 cho 336
+                new Account("3361", "Phải trả nội bộ về vốn kinh doanh", AccountType.Liability, 2, "336", false),
+                new Account("3362", "Phải trả nội bộ về chênh lệch tỷ giá", AccountType.Liability, 2, "336", false),
+                new Account("3363", "Phải trả nội bộ về chi phí đi vay đủ điều kiện được vốn hóa", AccountType.Liability, 2, "336", false),
+                new Account("3368", "Phải trả nội bộ khác", AccountType.Liability, 2, "336", false),
 
-                // --- Loại 6 - CHI PHÍ (EXPENSES) ---
-                // 61 - Chi phí sản xuất, kinh doanh
-                new Account("611", "Mua hàng (hàng hóa, nguyên vật liệu)", AccountType.Expense), // cho ngành thương mại
-                new Account("621", "Chi phí nguyên vật liệu trực tiếp", AccountType.Expense),
-                new Account("622", "Chi phí nhân công trực tiếp", AccountType.Expense),
-                new Account("623", "Chi phí sản xuất chung", AccountType.Expense),
-                new Account("627", "Chi phí quản lý doanh nghiệp", AccountType.Expense),
+                // TK cấp 2 cho 338
+                new Account("3381", "Tài sản thừa chờ giải quyết", AccountType.Liability, 2, "338", false),
+                new Account("3382", "Kinh phí công đoàn", AccountType.Liability, 2, "338", false),
+                new Account("3383", "Bảo hiểm xã hội", AccountType.Liability, 2, "338", false),
+                new Account("3384", "Bảo hiểm y tế", AccountType.Liability, 2, "338", false),
+                new Account("3385", "Bảo hiểm thất nghiệp", AccountType.Liability, 2, "338", false),
+                new Account("3387", "Doanh thu chờ phân bổ", AccountType.Liability, 2, "338", false),
+                new Account("3388", "Phải trả, phải nộp khác", AccountType.Liability, 2, "338", false),
 
-                // 63 - Chi phí tài chính
-                new Account("632", "Giá vốn hàng bán", AccountType.Expense),
-                new Account("635", "Chi phí tài chính", AccountType.Expense),
+                // TK cấp 2 cho 341
+                new Account("3411", "Các khoản vay", AccountType.Liability, 2, "341", false),
+                new Account("3412", "Nợ thuê tài chính", AccountType.Liability, 2, "341", false),
 
-                // 64 - Chi phí khác
-                new Account("641", "Chi phí bán hàng", AccountType.Expense),
-                new Account("642", "Chi phí quản lý doanh nghiệp", AccountType.Expense),
-                new Account("6421", "Chi phí tiền lương", AccountType.Expense), // TK cấp 2 (nếu cần)
-                new Account("6422", "Chi phí bảo hiểm, bảo hộ lao động", AccountType.Expense), // TK cấp 2 (nếu cần)
-                new Account("811", "Chi phí khác", AccountType.Expense),
+                // TK cấp 2 cho 343
+                new Account("3431", "Trái phiếu thường", AccountType.Liability, 2, "343", false),
+                new Account("3432", "Trái phiếu chuyển đổi", AccountType.Liability, 2, "343", false),
 
-                // --- Loại 8 - XÁC ĐỊNH KẾT QUẢ KINH DOANH (INCOME SUMMARY / PROFIT & LOSS) ---
-                new Account("911", "Xác định kết quả kinh doanh", AccountType.Other), // Tài khoản lỗ/lãi
+                // TK cấp 2 cho 352
+                new Account("3521", "Dự phòng bảo hành sản phẩm, hàng hóa", AccountType.Liability, 2, "352", false),
+                new Account("3522", "Dự phòng bảo hành công trình xây dựng", AccountType.Liability, 2, "352", false),
+                new Account("3523", "Dự phòng tái cơ cấu doanh nghiệp", AccountType.Liability, 2, "352", false),
+                new Account("3525", "Dự phòng phải trả khác", AccountType.Liability, 2, "352", false),
 
-                // --- Loại 0 - TÀI KHOẢN NGOÀI BẢNG CÂN ĐỐI KẾ TOÁN (OFF-BALANCE SHEET ACCOUNTS) ---
-                new Account("001", "Tài sản thuê", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("002", "Vật tư, hàng hóa nhận giữ hộ", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("003", "Ký quỹ, ký cược", AccountType.Other), // Ví dụ TK ngoài bảng (nếu không hạch toán vào 171/272)
-                new Account("004", "Chứng từ, sổ sách kế toán đã xử lý", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("005", "Công cụ, dụng cụ không đủ tiêu chuẩn tài sản cố định", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("006", "Tài sản thiếu chờ xử lý", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("007", "Tài sản thừa chờ xử lý", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("008", "Nợ khó đòi đã xử lý", AccountType.Other), // Ví dụ TK ngoài bảng
-                new Account("009", "Tài sản của đơn vị cấp trên giao", AccountType.Other)  // Ví dụ TK ngoài bảng
+                // TK cấp 2 cho 353
+                new Account("3531", "Quỹ khen thưởng", AccountType.Liability, 2, "353", false), // Listed as Liability in TT99
+                new Account("3532", "Quỹ phúc lợi", AccountType.Liability, 2, "353", false), // Listed as Liability in TT99
+                new Account("3533", "Quỹ phúc lợi đã hình thành TSCĐ", AccountType.Liability, 2, "353", false), // Listed as Liability in TT99
+                new Account("3534", "Quỹ phúc lợi quản lý điều hành công ty", AccountType.Liability, 2, "353", false), // Listed as Liability in TT99
+
+                // TK cấp 2 cho 356
+                new Account("3561", "Quỹ phát triển khoa học và công nghệ", AccountType.Liability, 2, "356", false), // Listed as Liability in TT99
+                new Account("3562", "Quỹ phát triển khoa học và công nghệ đã hình thành tài sản", AccountType.Liability, 2, "356", false), // Listed as Liability in TT99
+
+                // --- C. LOẠI TÀI KHOẢN VỐN CHỦ SỞ HỮU (Owner's Equity Accounts) ---
+                // TK cấp 1
+                new Account("411", "Vốn chủ sở hữu", AccountType.Equity, 1, null, true),
+                new Account("412", "Chênh lệch đánh giá lại tài sản", AccountType.Equity, 1, null, true),
+                new Account("413", "Chênh lệch tỷ giá hối đoái", AccountType.Equity, 1, null, true),
+                new Account("414", "Quỹ đầu tư phát triển", AccountType.Equity, 1, null, true),
+                new Account("418", "Các quỹ khác thuộc vốn chủ sở hữu", AccountType.Equity, 1, null, true),
+                new Account("419", "Cổ phiếu mua lại của chính mình", AccountType.Equity, 1, null, true),
+                new Account("421", "Lợi nhuận sau thuế chưa phân phối", AccountType.Equity, 1, null, true),
+
+                // TK cấp 2 cho 411
+                new Account("4111", "Vốn góp của chủ sở hữu", AccountType.Equity, 2, "411", false),
+                new Account("4112", "Thặng dư vốn", AccountType.Equity, 2, "411", false),
+                new Account("4118", "Vốn khác", AccountType.Equity, 2, "411", false),
+
+                // TK cấp 3 cho 4111
+                new Account("41111", "Vốn góp của chủ sở hữu phổ thông có quyền biểu quyết", AccountType.Equity, 3, "4111", false),
+                new Account("41112", "Vốn góp khác", AccountType.Equity, 3, "4111", false),
+
+                // TK cấp 2 cho 421
+                new Account("4211", "Lợi nhuận sau thuế chưa phân phối lũy kế đến cuối năm trước", AccountType.Equity, 2, "421", false),
+                new Account("4212", "Lợi nhuận sau thuế chưa phân phối năm nay", AccountType.Equity, 2, "421", false),
+
+                // --- D. LOẠI TÀI KHOẢN DOANH THU (Revenue Accounts) ---
+                // TK cấp 1
+                new Account("511", "Doanh thu bán hàng và cung cấp dịch vụ", AccountType.Revenue, 1, null, true),
+                new Account("515", "Doanh thu hoạt động tài chính", AccountType.Revenue, 1, null, true),
+
+                // --- E. LOẠI TÀI KHOẢN CHI PHÍ SẢN XUẤT, KINH DOANH (Production, Business Expense Accounts) ---
+                // TK cấp 1
+                new Account("521", "Các khoản giảm trừ doanh thu", AccountType.Revenue, 1, null, true), // Loại trừ
+                new Account("621", "Chi phí nguyên liệu, vật liệu trực tiếp", AccountType.Expense, 1, null, true),
+                new Account("622", "Chi phí nhân công trực tiếp", AccountType.Expense, 1, null, true),
+                new Account("623", "Chi phí sử dụng máy thi công", AccountType.Expense, 1, null, true),
+                new Account("627", "Chi phí sản xuất chung", AccountType.Expense, 1, null, true),
+                new Account("632", "Giá vốn hàng bán", AccountType.Expense, 1, null, true),
+                new Account("635", "Chi phí tài chính", AccountType.Expense, 1, null, true),
+                new Account("641", "Chi phí bán hàng", AccountType.Expense, 1, null, true),
+                new Account("642", "Chi phí quản lý doanh nghiệp", AccountType.Expense, 1, null, true),
+
+                // TK cấp 2 cho 623
+                new Account("6231", "Chi phí nhân công", AccountType.Expense, 2, "623", false),
+                new Account("6232", "Chi phí vật liệu", AccountType.Expense, 2, "623", false),
+                new Account("6233", "Chi phí dụng cụ sản xuất", AccountType.Expense, 2, "623", false),
+                new Account("6234", "Chi phí dịch vụ mua ngoài", AccountType.Expense, 2, "623", false),
+                new Account("6238", "Chi phí bằng tiền khác", AccountType.Expense, 2, "623", false),
+
+                // TK cấp 2 cho 627
+                new Account("6271", "Chi phí nhân viên phân xưởng", AccountType.Expense, 2, "627", false),
+                new Account("6272", "Chi phí vật liệu sản xuất", AccountType.Expense, 2, "627", false),
+                new Account("6273", "Chi phí dụng cụ sản xuất", AccountType.Expense, 2, "627", false),
+                new Account("6274", "Chi phí khấu hao TSCĐ", AccountType.Expense, 2, "627", false),
+                new Account("6275", "Thuế, phí, lệ phí", AccountType.Expense, 2, "627", false),
+                new Account("6277", "Chi phí dịch vụ mua ngoài", AccountType.Expense, 2, "627", false),
+                new Account("6278", "Chi phí bằng tiền khác", AccountType.Expense, 2, "627", false),
+
+                // TK cấp 2 cho 641
+                new Account("6411", "Chi phí nhân viên bán hàng", AccountType.Expense, 2, "641", false),
+                new Account("6412", "Chi phí vật liệu, bao bì", AccountType.Expense, 2, "641", false),
+                new Account("6413", "Chi phí dụng cụ, vật tư", AccountType.Expense, 2, "641", false),
+                new Account("6414", "Chi phí khấu hao TSCĐ", AccountType.Expense, 2, "641", false),
+                new Account("6415", "Thuế, phí, lệ phí", AccountType.Expense, 2, "641", false),
+                new Account("6417", "Chi phí dịch vụ mua ngoài", AccountType.Expense, 2, "641", false),
+                new Account("6418", "Chi phí bằng tiền khác", AccountType.Expense, 2, "641", false),
+
+                // TK cấp 2 cho 642
+                new Account("6421", "Chi phí nhân viên quản lý", AccountType.Expense, 2, "642", false),
+                new Account("6422", "Chi phí vật liệu văn phòng", AccountType.Expense, 2, "642", false),
+                new Account("6423", "Chi phí đồ dùng văn phòng", AccountType.Expense, 2, "642", false),
+                new Account("6424", "Chi phí khấu hao TSCĐ", AccountType.Expense, 2, "642", false),
+                new Account("6425", "Thuế, phí, lệ phí", AccountType.Expense, 2, "642", false),
+                new Account("6426", "Chi phí dự phòng", AccountType.Expense, 2, "642", false),
+                new Account("6427", "Chi phí dịch vụ mua ngoài", AccountType.Expense, 2, "642", false),
+                new Account("6428", "Chi phí bằng tiền khác", AccountType.Expense, 2, "642", false),
+
+                // --- F. LOẠI TÀI KHOẢN THU NHẬP KHÁC (Other Income Accounts) ---
+                // TK cấp 1
+                new Account("711", "Thu nhập khác", AccountType.Revenue, 1, null, true),
+
+                // --- G. LOẠI TÀI KHOẢN CHI PHÍ KHÁC (Other Expense Accounts) ---
+                // TK cấp 1
+                new Account("811", "Chi phí khác", AccountType.Expense, 1, null, true),
+
+                // --- H. LOẠI TÀI KHOẢN THUẾ TNDN (Corporate Income Tax Accounts) ---
+                // TK cấp 1
+                new Account("821", "Chi phí thuế thu nhập doanh nghiệp", AccountType.Expense, 1, null, true),
+
+                // TK cấp 2 cho 821
+                new Account("8211", "Chi phí thuế TNDN hiện hành", AccountType.Expense, 2, "821", false),
+                new Account("8212", "Chi phí thuế TNDN hoãn lại", AccountType.Expense, 2, "821", false),
+
+                // --- I. TÀI KHOẢN XÁC ĐỊNH KẾT QUẢ KINH DOANH (Business Results Determination Account) ---
+                // TK cấp 1
+                new Account("911", "Xác định kết quả kinh doanh", AccountType.Other, 1, null, true)
             );
         }
     }
