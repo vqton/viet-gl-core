@@ -1,5 +1,3 @@
-Okay, đây là nội dung cập nhật cho file `TT99_FEATURES.md` dựa trên các thông tin đã phân tích, so sánh với các sản phẩm thị trường và yêu cầu tuân thủ Thông tư 99/2025/TT-BTC.
-
 ```markdown
 # TT99_FEATURES.md
 
