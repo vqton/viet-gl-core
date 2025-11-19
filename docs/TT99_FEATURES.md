@@ -1,6 +1,3 @@
-```markdown
-# TT99_FEATURES.md
-
 ## Tổng quan
 
 Tài liệu này mô tả chi tiết các tính năng (Features) và yêu cầu hệ thống (UR/NFR) cho một hệ thống phần mềm kế toán doanh nghiệp nhằm đáp ứng nhu cầu quản trị thực tế và *tuân thủ đầy đủ* các quy định trong **Thông tư 99/2025/TT-BTC** ngày 27/10/2025 của Bộ Tài chính, có hiệu lực từ ngày 01/01/2026.
@@ -207,4 +204,3 @@ Dành cho doanh nghiệp sản xuất, xây lắp.
 | **SEC-03** | **Bảo mật & Kiểm soát** | **Cảnh báo & Ghi nhận thay đổi dữ liệu quan trọng** | Khi một người dùng có quyền sửa đổi dữ liệu quan trọng (ví dụ: bút toán đã duyệt, số dư đầu kỳ), hệ thống nên cảnh báo và ghi nhận rõ ràng hành động này, có thể yêu cầu xác nhận. |
 
 ---
-```
