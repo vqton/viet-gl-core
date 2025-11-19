@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
+<ItemGroup>
     <ProjectReference Include="..\TT99.DMN\TT99.DMN.csproj" />
     <ProjectReference Include="..\TT99.APPL\TT99.APPL.csproj" />
-  </ItemGroup>
+</ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="33.1.0" />

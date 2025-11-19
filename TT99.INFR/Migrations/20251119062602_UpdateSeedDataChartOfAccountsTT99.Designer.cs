@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TT99.INFR.Data;
@@ -11,9 +12,11 @@ using TT99.INFR.Data;
 namespace TT99.INFR.Migrations
 {
     [DbContext(typeof(TT99DbContext))]
-    partial class TT99DbContextModelSnapshot : ModelSnapshot
+    [Migration("20251119062602_UpdateSeedDataChartOfAccountsTT99")]
+    partial class UpdateSeedDataChartOfAccountsTT99
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

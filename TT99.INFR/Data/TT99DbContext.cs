@@ -16,6 +16,9 @@ namespace TT99.INFR.Data
         
         // DbSet cho Entity Tài khoản
         public DbSet<Account> Accounts { get; set; }
+
+        // DbSet cho Entity Kỳ kế toán
+        public DbSet<AccountingPeriod> AccountingPeriods { get; set; } // <-- Thêm dòng này
         
         // Constructor
         public TT99DbContext(DbContextOptions<TT99DbContext> options) : base(options)
@@ -32,7 +35,7 @@ namespace TT99.INFR.Data
             // === Cấu hình Entity Account (Updated for TT99 Hierarchy) ===
             modelBuilder.Entity<Account>(entity =>
             {
-                // Key chính: AccountNumber
+                // Khóa chính: AccountNumber
                 entity.HasKey(e => e.AccountNumber); 
                 entity.Property(e => e.AccountNumber).IsRequired().HasMaxLength(20); 
                 entity.Property(e => e.AccountName).IsRequired().HasMaxLength(256);
@@ -42,19 +45,23 @@ namespace TT99.INFR.Data
 
                 // Cấu hình các thuộc tính mới cho TT99 Hierarchy
                 entity.Property(e => e.Level).IsRequired();
-                entity.Property(e => e.ParentAccountNumber).HasMaxLength(20);
+                entity.Property(e => e.ParentAccountNumber).HasMaxLength(20); // Kích thước tương tự AccountNumber
+            });
 
-                // Optional: Cấu hình quan hệ cha-con (nếu cần cho truy vấn phức tạp sau này)
-                // entity.HasOne<Account>() // TK con
-                //      .WithMany() // Không có collection TK con trong Account nếu không cần
-                //      .HasForeignKey(e => e.ParentAccountNumber)
-                //      .OnDelete(DeleteBehavior.NoAction); // Tránh xóa cha làm mất con
+            // === Cấu hình Entity AccountingPeriod ===
+            modelBuilder.Entity<AccountingPeriod>(entity =>
+            {
+                entity.HasKey(e => e.Id); 
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
+                entity.Property(e => e.StartDate).IsRequired();
+                entity.Property(e => e.EndDate).IsRequired();
+                entity.Property(e => e.IsLocked).IsRequired(); // Mặc định là false
             });
 
             // === Cấu hình Entity JournalEntry (Aggregate Root) ===
             modelBuilder.Entity<JournalEntry>(entity =>
             {
-                // Key chính
+                // Khóa chính
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.VoucherNumber).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.TransactionDate).IsRequired();

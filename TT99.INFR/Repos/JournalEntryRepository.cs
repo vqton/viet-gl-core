@@ -1,18 +1,20 @@
-using Microsoft.EntityFrameworkCore;
+// File: D:\tt99acct\TT99.INFR\Repos\JournalEntryRepository.cs
+using Microsoft.EntityFrameworkCore; // Để dùng Include, FirstOrDefaultAsync, Where, OrderBy, ToListAsync
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using TT99.APPL.Intrfs;
-using TT99.DMN.Ents;
-using TT99.INFR.Data;
+// using TT99.APPL.Intrfs; // <-- ĐÃ XÓA
+using TT99.DMN.Ents; // Để dùng JournalEntry, LedgerEntry
+using TT99.INFR.Data; // Để dùng TT99DbContext
+using TT99.DMN.Interfaces; // <-- CẦN để "thấy" IJournalEntryRepository (và IRepository nếu kế thừa)
 
 namespace TT99.INFR.Repos
 {
     /// <summary>
     /// Triển khai IJournalEntryRepository.
     /// </summary>
-    public class JournalEntryRepository : Repository<JournalEntry>, IJournalEntryRepository
+    public class JournalEntryRepository : Repository<JournalEntry>, IJournalEntryRepository // <-- CẬP NHẬT: Triển khai IJournalEntryRepository
     {
         public JournalEntryRepository(TT99DbContext context) : base(context)
         {
@@ -41,6 +43,8 @@ namespace TT99.INFR.Repos
         }
 
         // Ghi đè phương thức GetById để đảm bảo luôn Include các dòng chi tiết
+        // Nếu Repository base chưa làm điều này, bạn có thể ghi đè như sau:
+        // Nếu Repository base đã làm, bạn có thể bỏ qua phương thức này.
         public new async Task<JournalEntry> GetByIdAsync(Guid id)
         {
             return await _dbSet

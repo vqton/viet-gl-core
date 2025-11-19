@@ -1,7 +1,12 @@
-using Microsoft.EntityFrameworkCore;
-using TT99.APPL.Qries;
-using TT99.APPL.Services;
-using TT99.INFR.Data; // Sử dụng TT99DbContext
+// File: D:\tt99acct\TT99.INFR\Services\ReportQueryService.cs
+using TT99.APPL.Qries; // <-- THÊM DÒNG NÀY để "thấy" GeneralLedgerDto
+using TT99.APPL.Services; // <-- Đảm bảo namespace chứa IReportQueryService được "thấy"
+using TT99.INFR.Data; // Để dùng TT99DbContext
+using Microsoft.EntityFrameworkCore; // Để dùng ToListAsync
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace TT99.INFR.Services
 {
@@ -9,7 +14,7 @@ namespace TT99.INFR.Services
     /// Triển khai dịch vụ truy vấn báo cáo, giao tiếp với cơ sở dữ liệu thông qua EF Core.
     /// Dịch vụ này thực hiện các truy vấn phức tạp như Sổ Cái, Bảng cân đối Kế toán...
     /// </summary>
-    public class ReportQueryService : IReportQueryService
+    public class ReportQueryService : IReportQueryService // <-- ĐẢM BẢO DÒNG NÀY CÓ: : IReportQueryService
     {
         // Sử dụng TT99DbContext để truy cập cơ sở dữ liệu
         private readonly TT99DbContext _context; 
@@ -22,10 +27,6 @@ namespace TT99.INFR.Services
         /// <summary>
         /// Lấy dữ liệu Sổ Cái (General Ledger) trong một khoảng thời gian cụ thể.
         /// </summary>
-        /// <param name="startDate">Ngày bắt đầu (UTC, bao gồm).</param>
-        /// <param name="endDate">Ngày kết thúc (UTC, độc quyền, đã được tính toán trong Handler).</param>
-        /// <param name="accountNumber">Tài khoản cần lọc (tùy chọn).</param>
-        /// <param name="cancellationToken">Token hủy bỏ.</param>
         public async Task<List<GeneralLedgerDto>> GetGeneralLedgerEntries(
             DateTime startDate,
             DateTime endDate,
@@ -38,7 +39,7 @@ namespace TT99.INFR.Services
                         join account in _context.Accounts // JOIN với Danh mục Tài khoản
                             on detail.AccountNumber equals account.AccountNumber
                         
-                        // Lọc theo khoảng ngày (endDate là exclusive, đã được tính là ngày hôm sau)
+                        // Lọc theo khoảng ngày (endDate là exclusive, đã được tính toán trong Handler)
                         where entry.TransactionDate >= startDate && entry.TransactionDate < endDate 
                         
                         // Chỉ lấy các bút toán đã được ghi sổ (Posted)

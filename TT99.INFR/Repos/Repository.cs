@@ -1,49 +1,51 @@
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using TT99.APPL.Intrfs;
-using TT99.INFR.Data;
+using TT99.DMN.Interfaces;
 
 namespace TT99.INFR.Repos
 {
     /// <summary>
-    /// Triển khai Generic Repository cơ bản bằng Entity Framework Core.
+    /// Base generic repository implementation (async)
     /// </summary>
-    public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
+    public class Repository<T> : IRepository<T> where T : class
     {
-        protected readonly TT99DbContext _context;
-        protected readonly DbSet<TEntity> _dbSet;
+        protected readonly DbContext _context;
+        protected readonly DbSet<T> _dbSet;
 
-        public Repository(TT99DbContext context)
+        public Repository(DbContext context)
         {
             _context = context;
-            _dbSet = context.Set<TEntity>();
+            _dbSet = _context.Set<T>();
         }
 
-        public async Task AddAsync(TEntity entity)
+        public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default)
         {
-            await _dbSet.AddAsync(entity);
+            await _dbSet.AddAsync(entity, cancellationToken);
         }
 
-        public async Task<TEntity> GetByIdAsync(Guid id)
-        {
-            return await _dbSet.FindAsync(id);
-        }
-
-        public async Task<IEnumerable<TEntity>> GetAllAsync()
-        {
-            return await _dbSet.ToListAsync();
-        }
-
-        public void Update(TEntity entity)
+        public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
         {
             _dbSet.Update(entity);
+            await Task.CompletedTask;
         }
 
-        public void Remove(TEntity entity)
+        public virtual async Task RemoveAsync(T entity, CancellationToken cancellationToken = default)
         {
             _dbSet.Remove(entity);
+            await Task.CompletedTask;
+        }
+
+        public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.FindAsync(new object?[] { id }, cancellationToken);
+        }
+
+        public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return await _dbSet.ToListAsync(cancellationToken);
         }
     }
 }

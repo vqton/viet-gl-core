@@ -1,3 +1,4 @@
+// File: D:\tt99acct\TT99.APPL\Qries\GeneralLedgerDto.cs
 using System;
 
 namespace TT99.APPL.Qries

@@ -1,4 +1,9 @@
-using TT99.APPL.Qries;
+// File: D:\tt99acct\TT99.APPL\Services\IReportQueryService.cs
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using TT99.APPL.Qries; // Để dùng GeneralLedgerDto
 
 namespace TT99.APPL.Services
 {
@@ -10,7 +15,7 @@ namespace TT99.APPL.Services
         Task<List<GeneralLedgerDto>> GetGeneralLedgerEntries(
             DateTime startDate,
             DateTime endDate,
-                        string? accountNumber, // ĐÃ THÊM: tham số lọc tài khoản (nullable string)
+            string? accountNumber, // Tham số lọc tài khoản
             CancellationToken cancellationToken);
     }
 }
