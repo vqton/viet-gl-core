@@ -2,7 +2,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from app.config import DATABASE_URL # ĐÃ ĐƯỢC CẬP NHẬT
+from app.config import DATABASE_URL
 
 # 1. Tạo engine kết nối DB
 engine = create_engine(DATABASE_URL)
@@ -17,6 +17,7 @@ Base = declarative_base()
 # Điều này đảm bảo Base.metadata biết về các model này.
 # Nếu bạn có nhiều model, import tất cả ở đây.
 from app.infrastructure.models.sql_account import SQLAccount # <-- Import SQLAccount
+from app.infrastructure.models.sql_journal_entry import SQLJournalEntry, SQLJournalEntryLine # <-- Thêm dòng này
 
 # (Có thể import các model khác sau này)
 # from app.infrastructure.models.sql_journal_entry import SQLJournalEntry
