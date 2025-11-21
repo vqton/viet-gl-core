@@ -222,3 +222,86 @@ class JournalingService:
             buoc_toan_da_luu.append(buoc_toan_luu)
 
         return buoc_toan_da_luu
+    
+    def _xac_dinh_ky_cho_ngay(self, ngay_ct: date) -> Optional[int]:
+        """
+        Xác định ID kỳ kế toán cho một ngày chứng từ.
+        Trả về ID kỳ nếu tìm thấy, None nếu không tìm thấy kỳ phù hợp.
+        """
+        # Lấy danh sách tất cả các kỳ
+        danh_sach_ky = self.accounting_period_service.lay_danh_sach_ky_ke_toan()
+        for ky in danh_sach_ky:
+            if ky.ngay_bat_dau <= ngay_ct <= ky.ngay_ket_thuc:
+                return ky.id
+        return None
+
+    def tao_phieu_ke_toan(self, journal_entry_domain: JournalEntry) -> JournalEntry:
+        """
+        Tạo mới một bút toán kế toán.
+        - Kiểm tra hợp lệ đã được thực hiện trong Domain Entity (kiem_tra_can_bang).
+        - Kiểm tra tài khoản có tồn tại trong hệ thống hay không (tại Application Layer).
+        - Kiểm tra xem kỳ của ngày chứng từ đã bị khóa chưa.
+        - Gọi Repository để lưu vào DB.
+        """
+        # Kiểm tra khóa sổ
+        id_ky = self._xac_dinh_ky_cho_ngay(journal_entry_domain.ngay_ct)
+        if id_ky and self.accounting_period_service.is_ky_da_khoa(id_ky):
+            raise ValueError(f"Không thể tạo bút toán cho ngày {journal_entry_domain.ngay_ct.strftime('%Y-%m-%d')}. Kỳ kế toán đã bị khóa.")
+
+        # Kiểm tra tài khoản tồn tại cho từng dòng trong bút toán
+        for line in journal_entry_domain.lines:
+            tai_khoan = self.account_repository.get_by_id(line.so_tai_khoan)
+            if not tai_khoan:
+                raise ValueError(f"Tài khoản '{line.so_tai_khoan}' không tồn tại trong hệ thống.")
+
+        # Gọi Repository để thêm vào DB
+        # (Lưu ý: Logic kiểm tra cân bằng `kiem_tra_can_bang` đã được thực hiện
+        # trong `__post_init__` của `JournalEntryDomain` khi nó được tạo ra từ API)
+        return self.repository.add(journal_entry_domain)
+
+    def cap_nhat_phieu_ke_toan(self, id: int, journal_entry_domain_updated: JournalEntry) -> Optional[JournalEntry]:
+        """
+        Cập nhật một bút toán kế toán.
+        - Kiểm tra xem bút toán có tồn tại không.
+        - Kiểm tra xem kỳ của ngày chứng từ đã bị khóa chưa.
+        - Kiểm tra hợp lệ (cân bằng, tài khoản tồn tại).
+        - Gọi Repository để cập nhật.
+        """
+        # Lấy bút toán hiện tại để kiểm tra ngày
+        journal_entry_hien_tai = self.repository.get_by_id(id)
+        if not journal_entry_hien_tai:
+            return None
+
+        # Kiểm tra khóa sổ
+        id_ky = self._xac_dinh_ky_cho_ngay(journal_entry_hien_tai.ngay_ct)
+        if id_ky and self.accounting_period_service.is_ky_da_khoa(id_ky):
+            raise ValueError(f"Không thể cập nhật bút toán {id} cho ngày {journal_entry_hien_tai.ngay_ct.strftime('%Y-%m-%d')}. Kỳ kế toán đã bị khóa.")
+
+        # Kiểm tra tài khoản tồn tại cho từng dòng mới
+        for line in journal_entry_domain_updated.lines:
+            tai_khoan = self.account_repository.get_by_id(line.so_tai_khoan)
+            if not tai_khoan:
+                raise ValueError(f"Tài khoản '{line.so_tai_khoan}' không tồn tại trong hệ thống.")
+
+        # Gọi Repository để cập nhật DB
+        return self.repository.update(id, journal_entry_domain_updated)
+
+    def xoa_phieu_ke_toan(self, id: int) -> bool:
+        """
+        Xóa một bút toán kế toán.
+        - Kiểm tra xem bút toán có tồn tại không.
+        - Kiểm tra xem kỳ của ngày chứng từ đã bị khóa chưa.
+        - Gọi Repository để xóa.
+        """
+        # Lấy bút toán để kiểm tra ngày
+        journal_entry = self.repository.get_by_id(id)
+        if not journal_entry:
+            return False
+
+        # Kiểm tra khóa sổ
+        id_ky = self._xac_dinh_ky_cho_ngay(journal_entry.ngay_ct)
+        if id_ky and self.accounting_period_service.is_ky_da_khoa(id_ky):
+            raise ValueError(f"Không thể xóa bút toán {id} cho ngày {journal_entry.ngay_ct.strftime('%Y-%m-%d')}. Kỳ kế toán đã bị khóa.")
+
+        # Gọi Repository để xóa DB
+        return self.repository.delete(id)

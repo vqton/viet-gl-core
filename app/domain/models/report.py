@@ -14,29 +14,39 @@ class BaoCaoTaiChinhBase(BaseModel):
     ky_hieu: str    # Kỳ lập báo cáo (ví dụ: "Năm 2025", "Quý 4/2025")
 
 # --- 1. B01-DN: Báo cáo tình hình tài chính ---
+# Các nhóm tài sản, nợ, vốn chi tiết hơn theo Phụ lục IV
+class TienVaCacKhoanTgTien(BaseModel):
+    tien_mat: Decimal
+    tien_gui_ngan_hang: Decimal
+    tien_gui_ngan_han_khac: Decimal
+
 class TaiSanNganHan(BaseModel):
-    tien_va_cac_khoan_tuong_duong_tien: Decimal
+    tien_va_cac_khoan_tuong_duong_tien: TienVaCacKhoanTgTien
     cac_khoan_dau_tu_tai_chinh_ngan_han: Decimal
     phai_thu_ngan_han: Decimal
     hang_ton_kho: Decimal
-    # ... các khoản khác theo mẫu B01-DN
+    tai_san_ngan_han_khac: Decimal
 
 class TaiSanDaiHan(BaseModel):
+    tai_san_co_dinh_huu_hinh: Decimal
+    tai_san_co_dinh_vo_hinh: Decimal
+    dau_tu_tai_chinh_dai_han: Decimal
     tai_san_dai_han_khac: Decimal
-    # ... các khoản khác theo mẫu B01-DN
 
 class NoPhaiTraNganHan(BaseModel):
     phai_tra_nguoi_ban: Decimal
-    # ... các khoản khác theo mẫu B01-DN
+    # ... các khoản khác theo Phụ lục IV: Phải trả người bán ngắn hạn, Người lao động, Nhà nước, Nội bộ, Khác
+    phai_tra_nguoi_ban_khac: Decimal
 
-class NoPhaiTraDaiHan(BaseModel):
-    # ... các khoản khác theo mẫu B01-DN
-    pass
+class NoPhaiTraDaiHan(BaseModel): # <-- Thêm model này
+    # ... các khoản theo Phụ lục IV: Vay, Thuê tài chính, Phải trả dài hạn khác
+    vay_dai_han: Decimal = Decimal('0') # Ví dụ, có thể thêm các trường cụ thể sau
+    no_phai_tra_dai_han_khac: Decimal = Decimal('0')
 
 class VonChuSoHuu(BaseModel):
     von_dieu_le: Decimal
     loi_nhuan_sau_thue_chua_phan_phoi: Decimal
-    # ... các khoản khác theo mẫu B01-DN
+    # ... các khoản khác theo Phụ lục IV
 
 class BaoCaoTinhHinhTaiChinh(BaoCaoTaiChinhBase):
     tai_san_ngan_han: TaiSanNganHan
@@ -44,9 +54,8 @@ class BaoCaoTinhHinhTaiChinh(BaoCaoTaiChinhBase):
     tong_cong_tai_san: Decimal # Tính từ tổng tài sản ngắn hạn và dài hạn
 
     no_phai_tra_ngan_han: NoPhaiTraNganHan
-    no_phai_tra_dai_han: NoPhaiTraDaiHan
-    tong_cong_no_phai_tra: Decimal # Tính từ tổng nợ ngắn hạn và dài hạn
-
+    no_phai_tra_dai_han: NoPhaiTraDaiHan # <-- Thêm trường này
+    tong_cong_no_phai_tra: Decimal # <-- Thêm trường này, Tính từ tổng nợ ngắn hạn và dài hạn
     von_chu_so_huu: VonChuSoHuu
     tong_cong_nguon_von: Decimal # Tính từ tổng nợ và vốn chủ sở hữu
 
@@ -58,6 +67,9 @@ class BaoCaoKetQuaHDKD(BaoCaoTaiChinhBase):
     chi_phi_ban_hang: Decimal
     chi_phi_quan_ly_doanh_nghiep: Decimal
     # ... các khoản khác theo mẫu B02-DN
+    loi_nhuan_tu_hoat_dong_kd: Decimal # LNSTT - CPBH - CPQLDN
+    thu_nhap_hoat_dong_tai_chinh: Decimal
+    chi_phi_tai_chinh: Decimal
     loi_nhuan_truoc_thue: Decimal
     thue_thu_nhap_doanh_nghiep: Decimal
     loi_nhuan_sau_thue: Decimal
