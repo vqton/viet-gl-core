@@ -119,4 +119,18 @@ class JournalEntryRepository:
             )
         return journal_entries_domain
 
+    def get_all_by_period(self, period_id: int) -> List[SQLJournalEntry]:
+            """
+            Lấy tất cả bút toán trong một kỳ kế toán.
+            Giả sử có trường period_id trong SQLJournalEntry.
+            """
+            return self.db_session.query(SQLJournalEntry).filter(SQLJournalEntry.period_id == period_id).all()
+
+    def update(self, sql_journal_entry: SQLJournalEntry) -> None:
+        """
+        Cập nhật thông tin bút toán (chủ yếu để thay đổi trạng thái trang_thai).
+        """
+        self.db_session.add(sql_journal_entry)
+        self.db_session.commit()
+        self.db_session.refresh(sql_journal_entry)
     # (Có thể thêm các phương thức khác như update, delete, find_by_condition nếu cần)

@@ -3,8 +3,8 @@
 from sqlalchemy import Column, Integer, String, Date, Numeric, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship # Import relationship
 from app.infrastructure.models.sql_account import SQLAccount # Import để ràng buộc FK
-
-Base = declarative_base()
+from app.infrastructure.base import Base
+# from app.infrastructure.database import Base
 
 class SQLJournalEntryLine(Base):
     """
