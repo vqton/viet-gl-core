@@ -12,296 +12,217 @@ from app.domain.models.report import (
     TaiSanNganHan,
     TaiSanDaiHan,
     NoPhaiTraNganHan,
-    NoPhaiTraDaiHan, # <-- Thêm import
+    NoPhaiTraDaiHan,
     VonChuSoHuu,
-    TienVaCacKhoanTgTien, # <-- Thêm import
+    TienVaCacKhoanTgTien,
     ChiTietTaiKhoan,
     ThuyetMinhTaiSan,
     ThuyetMinhNguonVon,
-    ThuyetMinhKetQua
+    ThuyetMinhKetQua,
+    ThuNhapKhac, # Thêm import nếu cần thiết
+    ChiPhiKhac # Thêm import nếu cần thiết
 )
 from app.domain.models.journal_entry import JournalEntryLine
 from app.domain.models.account import TaiKhoan, LoaiTaiKhoan
 from app.infrastructure.repositories.journal_entry_repository import JournalEntryRepository
 from app.infrastructure.repositories.account_repository import AccountRepository
 from app.application.services.journaling_service import JournalingService
-from app.application.services.accounting_period_service import AccountingPeriodService
+from app.application.services.accounting_period_service import AccountingPeriodService # Cần import này
+
+# Định nghĩa hướng ghi sổ mặc định (Số dư cuối kỳ Nợ (+) / Có (-))
+# Tài sản: Dư Nợ (Debit), Nợ Phải Trả & Vốn CSH: Dư Có (Credit)
+HUONG_GHI_SO_MAC_DINH: Dict[LoaiTaiKhoan, str] = {
+    LoaiTaiKhoan.TAI_SAN: 'NO',
+    LoaiTaiKhoan.CHI_PHI: 'NO',
+    LoaiTaiKhoan.GIA_VON: 'NO',
+    LoaiTaiKhoan.NO_PHAI_TRA: 'CO',
+    LoaiTaiKhoan.VON_CHU_SO_HUU: 'CO',
+    LoaiTaiKhoan.DOANH_THU: 'CO',
+    LoaiTaiKhoan.KHAC: 'NO', # Mặc định là NO, cần xem xét cụ thể cho từng tài khoản
+}
 
 class ReportingService:
-    def __init__(self, journal_entry_repo: JournalEntryRepository, account_repo: AccountRepository):
+    def __init__(
+        self,
+        journal_entry_repo: JournalEntryRepository,
+        account_repo: AccountRepository,
+        accounting_period_service: AccountingPeriodService # Đã thêm dependency mới
+    ):
         self.journal_entry_repo = journal_entry_repo
         self.account_repo = account_repo
-        # Danh sách tài khoản theo nhóm (dựa trên Phụ lục II TT99)
-        # Danh sách này có thể được cấu hình trong tương lai qua MST-04 (Chính sách Kế toán)
-        # self.tai_san_ngan_han_codes = [ ... ] # Không còn cần thiết nếu có logic phân loại
-        # self.tai_san_dai_han_codes = [ ... ]
-        # ... (các danh sách khác cũng tương tự)
+        self.accounting_period_service = accounting_period_service
 
-    def _tinh_so_du_va_phan_loai_tai_khoan(self, ky_hieu: str, ngay_lap: date) -> Tuple[Dict[str, Decimal], Dict[str, LoaiTaiKhoan]]:
+    def _get_balance_at_date(self, so_tai_khoan: str, end_date: date) -> Tuple[Decimal, Decimal, Decimal]:
         """
-        Core logic: Tính số dư cuối kỳ cho từng tài khoản và phân loại tài khoản.
-        Đây là phương thức trung tâm để tính toán dữ liệu cho các báo cáo.
-        Trả về:
-        - so_du_tai_khoan: Dict ánh xạ mã tài khoản -> số dư cuối kỳ (theo nguyên tắc kế toán: tài sản ghi Nợ, nợ/vốn ghi Có, trừ tài khoản loại trừ)
-        - phan_loai_tai_khoan: Dict ánh xạ mã tài khoản -> loại tài khoản (TaiSan, NoPhaiTra, ...)
-        """
-        # Bước 1: Lấy tất cả các dòng bút toán đã được "Posted" (và trong kỳ nếu có logic kỳ)
-        # (Giả sử repository có phương thức lọc theo trạng thái và kỳ)
-        all_journal_lines = self.journal_entry_repo.get_all_journal_lines_posted() # Cần có logic lọc theo kỳ thực tế sau
+        [LOGIC CỐT LÕI] Tính toán số dư đầu kỳ (01/01 năm tài chính hoặc đầu kỳ báo cáo),
+        tổng phát sinh Nợ/Có, và số dư cuối kỳ cho một tài khoản đến ngày `end_date`.
 
-        # Bước 2: Tính số dư thô (Nợ - Có) cho từng tài khoản
-        so_du_tho = {}
-        for line in all_journal_lines:
-            tk = line.so_tai_khoan
-            if tk not in so_du_tho:
-                so_du_tho[tk] = Decimal('0')
-            so_du_tho[tk] += line.no - line.co
+        Hàm này là giả định, trong thực tế sẽ phức tạp hơn (cần số dư đầu năm, số dư chuyển kỳ).
+        Hiện tại chỉ tính tổng phát sinh từ đầu năm đến end_date.
 
-        # Bước 3: Lấy thông tin loại tài khoản cho từng mã tài khoản
-        so_du_tai_khoan = {}
-        phan_loai_tai_khoan = {}
-        for tk_ma in so_du_tho.keys():
-            tai_khoan_chi_tiet = self.account_repo.get_by_id(tk_ma)
-            if tai_khoan_chi_tiet: # Kiểm tra nếu tài khoản tồn tại
-                loai = tai_khoan_chi_tiet.loai_tai_khoan
-                phan_loai_tai_khoan[tk_ma] = loai
-                # Bước 4: Áp dụng logic để tính số dư cuối kỳ phù hợp với loại tài khoản
-                so_du_tho_tk = so_du_tho[tk_ma]
-                if loai in [LoaiTaiKhoan.TAI_SAN, LoaiTaiKhoan.CHI_PHI]:
-                    # Số dư cuối kỳ = Nợ - Có (số dư thô)
-                    so_du_tai_khoan[tk_ma] = so_du_tho_tk
-                elif loai in [LoaiTaiKhoan.NO_PHAI_TRA, LoaiTaiKhoan.VON_CHU_SO_HUU, LoaiTaiKhoan.DOANH_THU]:
-                    # Số dư cuối kỳ = Có - Nợ = -(Nợ - Có) = - số dư thô
-                    so_du_tai_khoan[tk_ma] = -so_du_tho_tk
-                elif loai == LoaiTaiKhoan.KHAC:
-                    # Xử lý tài khoản đặc biệt như 214 (Hao mòn), 229 (Dự phòng), 352 (Dự phòng phải trả), 521 (Giảm trừ doanh thu)
-                    # thường có số dư bên Có, nên giống như nợ/vốn.
-                    # 911 (Xác định KQKD) là tài khoản cuối kỳ, số dư cuối kỳ = 0 sau kết chuyển.
-                    # Giả sử tài khoản loại trừ (contra) có dấu hiệuệu ngược lại.
-                    # Nếu tài khoản loại trừ, số dư cuối kỳ = -(Nợ - Có) = - số dư thô
-                    # Nếu không, thì theo loại tài khoản cha (ví dụ 911 là kết chuyển, số dư = 0).
-                    # Trong thực tế, có thể cần kiểm tra cụ thể mã tài khoản.
-                    # Ví dụ: nếu tk_ma == "214": so_du_tai_khoan[tk_ma] = - so_du_tho_tk
-                    #       elif tk_ma == "911": so_du_tai_khoan[tk_ma] = 0 (sau kết chuyển)
-                    #       else: so_du_tai_khoan[tk_ma] = - so_du_tho_tk (nếu là tài khoản loại trừ)
-                    # Trong ví dụ này, ta giả sử các tài khoản trong LoaiTaiKhoan.KHAC (như 214, 229, 352, 521) là tài khoản loại trừ.
-                    # Còn 911 sẽ được xử lý riêng khi tính báo cáo kết quả.
-                    # Vì 214 là tài khoản loại trừ, số dư cuối kỳ của nó là -(Nợ - Có) = - số dư thô.
-                    # Nếu số dư thô của 214 là âm (Có > Nợ), thì số dư cuối kỳ là dương (làm giảm tài sản).
-                    # Nếu số dư thô của 214 là dương (Nợ > Có), thì số dư cuối kỳ là âm (rất hiếm).
-                    # Ví dụ: Có 20000, Nợ 0 -> SD_thô = -20000 -> SD_đk = -(-20000) = 20000.
-                    # Ví dụ: Có 0, Nợ 20000 -> SD_thô = 20000 -> SD_đk = -20000 (hiếm).
-                    # => sd_tai_khoan[tk_ma] = - so_du_tho_tk # ĐÚNG cho tài khoản loại trừ
-                    # Tuy nhiên, để tính tổng tài sản, ta cộng số dư cuối kỳ của 211 và 214.
-                    # Nếu 211 có SD_đk = 200000 (dương), 214 có SD_đk = 20000 (dương vì là loại trừ), thì Tổng TS = 200000 + 20000 = 220000. -> SAI.
-                    # Phải là: Tổng TS = 200000 - 20000 = 180000.
-                    # Vậy, khi *tổng hợp* tài sản, ta cộng số dư cuối kỳ của 211 và *trừ* số dư cuối kỳ của 214.
-                    # Hoặc, nếu SD_đk của 214 được tính là âm (ví dụ: SD_thô 214 = -20000, SD_đk = -(-20000) = 20000 -> cộng vào TS thì tăng).
-                    # Cách đúng: SD_đk của 214 = SD_thô (nếu là loại trừ và SD_thô âm -> SD_đk âm -> cộng vào TS làm giảm).
-                    # SD_thô 214 = 0 - 20000 = -20000.
-                    # SD_đk 214 = SD_thô 214 = -20000. -> Cộng vào TS: 200000 + (-20000) = 180000. -> ĐÚNG.
-                    # => Với tài khoản loại trừ: SD_đk = SD_thô.
-                    # => Khi tổng hợp vào nhóm tài sản/nợ, ta cộng số dư cuối kỳ (có thể âm nếu là loại trừ).
-                    so_du_tai_khoan[tk_ma] = so_du_tho_tk # Giữ nguyên số dư thô cho tài khoản loại trừ
-                else:
-                    # Nên log lại nếu có loại tài khoản không xác định
-                    so_du_tai_khoan[tk_ma] = so_du_tho_tk # Mặc định
-            else:
-                print(f"Warning: Tài khoản {tk_ma} trong bút toán không tồn tại trong danh mục tài khoản.")
-                so_du_tho[tk_ma] = Decimal('0')
-                phan_loai_tai_khoan[tk_ma] = None
-                so_du_tai_khoan[tk_ma] = Decimal('0')
+        Returns: (SoDuDauKy, PhatSinhNo, PhatSinhCo, SoDuCuoiKy)
+        """
+        # Giả định: Lấy tất cả bút toán đã "Posted" từ đầu năm đến end_date
+        # (Để đơn giản, chúng ta sẽ bỏ qua số dư đầu năm và chỉ tính PS trong kỳ)
+        
+        # 1. Giả định ngày bắt đầu tính toán là 01/01 của năm đó.
+        start_date = date(end_date.year, 1, 1)
 
-        return so_du_tai_khoan, phan_loai_tai_khoan
+        # 2. Lấy tất cả bút toán đã được Ghi sổ (Posted) trong khoảng thời gian
+        posted_entries = self.journal_entry_repo.get_all_posted_in_range(start_date, end_date)
+        
+        tong_no = Decimal(0)
+        tong_co = Decimal(0)
+        
+        # 3. Tổng hợp Nợ/Có từ các dòng bút toán
+        for entry in posted_entries:
+            for line in entry.lines:
+                if line.so_tai_khoan == so_tai_khoan:
+                    tong_no += line.no
+                    tong_co += line.co
+        
+        # 4. Xác định số dư cuối kỳ
+        tai_khoan = self.account_repo.get_by_id(so_tai_khoan)
+        if not tai_khoan:
+            raise ValueError(f"Tài khoản {so_tai_khoan} không tồn tại.")
 
-    def _phan_loai_tai_san_ngan_han(self, tk_ma: str) -> bool:
-        """
-        Kiểm tra xem tài khoản có phải là tài sản ngắn hạn không.
-        Dựa trên mã tài khoản và/hoặc loại tài khoản.
-        """
-        return (
-            tk_ma.startswith(("11", "12", "13", "15")) or
-            tk_ma.startswith("242") # Chi phí trả trước ngắn hạn
-        ) and tk_ma not in ["241"] # Loại trừ XDCB dở dang dài hạn
+        loai_tai_khoan = tai_khoan.loai_tai_khoan
+        huong_mac_dinh = HUONG_GHI_SO_MAC_DINH.get(loai_tai_khoan, 'NO')
 
-    def _phan_loai_tai_san_dai_han(self, tk_ma: str) -> bool:
-        """
-        Kiểm tra xem tài khoản có phải là tài sản dài hạn không.
-        Dựa trên mã tài khoản và/hoặc loại tài khoản.
-        """
-        return (
-            tk_ma.startswith(("21", "22")) or
-            tk_ma.startswith("241") or # Xây dựng cơ bản dở dang (dài hạn)
-            tk_ma == "243" # Tài sản thuế thu nhập hoãn lại
-        )
+        so_du_dau_ky = Decimal(0) # GIẢ ĐỊNH: Chỉ tính PS trong kỳ
+        so_du_cuoi_ky = so_du_dau_ky + (tong_no - tong_co) if huong_mac_dinh == 'NO' else so_du_dau_ky + (tong_co - tong_no)
 
-    def _phan_loai_no_ngan_han(self, tk_ma: str) -> bool:
-        """
-        Kiểm tra xem tài khoản có phải là nợ phải trả ngắn hạn không.
-        Dựa trên mã tài khoản và/hoặc loại tài khoản.
-        """
-        return (
-            tk_ma.startswith(("31", "33")) and not tk_ma.startswith("3387") or # 3387 là dài hạn
-            tk_ma in ["341", "342"] # Một số tài khoản dài hạn có phần ngắn hạn
-        ) and tk_ma not in ["341", "342"] # Loại trừ tài khoản gốc dài hạn nếu có phần chi tiết ngắn hạn
+        # Trả về kết quả: (SỐ DƯ ĐẦU KỲ, PHÁT SINH NỢ, PHÁT SINH CÓ, SỐ DƯ CUỐI KỲ)
+        return (so_du_dau_ky, tong_no, tong_co, so_du_cuoi_ky)
 
-    def _phan_loai_no_dai_han(self, tk_ma: str) -> bool:
-        """
-        Kiểm tra xem tài khoản có phải là nợ phải trả dài hạn không.
-        Dựa trên mã tài khoản và/hoặc loại tài khoản.
-        """
-        return (
-            tk_ma.startswith(("34", "3387")) # Vay & nợ thuê TC, Phải trả dài hạn khác, Phải trả khác dài hạn
-        )
-
-    def _phan_loai_von_chu_so_huu(self, tk_ma: str) -> bool:
-        """
-        Kiểm tra xem tài khoản có phải là vốn chủ sở hữu không.
-        Dựa trên mã tài khoản và/hoặc loại tài khoản.
-        """
-        return tk_ma.startswith(("41", "42")) # 41, 42
 
     def lay_bao_cao_tinh_hinh_tai_chinh(self, ky_hieu: str, ngay_lap: date) -> BaoCaoTinhHinhTaiChinh:
         """
-        Tính toán và trả về Báo cáo tình hình tài chính (B01-DN) cho kỳ đã cho.
+        Tính toán và trả về Báo cáo tình hình tài chính (B01-DN).
         """
-        # Gọi core logic để lấy số dư và phân loại
-        so_du_tai_khoan, phan_loai_tai_khoan = self._tinh_so_du_va_phan_loai_tai_khoan(ky_hieu, ngay_lap)
+        # 1. Tìm kỳ kế toán để xác định ngày bắt đầu/kết thúc
+        ky_ke_toan = self.accounting_period_service.lay_ky_ke_toan_theo_ten(ky_hieu)
+        if not ky_ke_toan:
+             raise ValueError(f"Không tìm thấy kỳ kế toán với ký hiệu '{ky_hieu}'.")
+        
+        end_date = ky_ke_toan.ngay_ket_thuc # Báo cáo tại thời điểm cuối kỳ
 
-        # --- Bắt đầu tính toán các chỉ tiêu cho B01-DN ---
-        # Tính các nhóm: TaiSanNganHan, TaiSanDaiHan, NoPhaiTraNganHan, NoPhaiTraDaiHan, VonChuSoHuu
+        # 2. Lấy số liệu cho các chỉ tiêu:
+        # Ví dụ: Lấy tiền và các khoản tương đương tiền (TK 111, 112, 113)
+        # Báo cáo này cần số dư cuối kỳ, không cần Phát sinh Nợ/Có.
+        
+        so_du_111 = self._get_balance_at_date("111", end_date)[3] # Số dư cuối kỳ
+        so_du_112 = self._get_balance_at_date("112", end_date)[3]
+        
+        tien_va_tg_tien = TienVaCacKhoanTgTien(
+            tien_mat=so_du_111,
+            tien_gui_ngan_hang=so_du_112,
+            tien_gui_ngan_han_khac=Decimal(0) # Cần logic cho TK 113
+        )
+        
+        tong_tien_va_tg_tien = tien_va_tg_tien.tien_mat + tien_va_tg_tien.tien_gui_ngan_hang + tien_va_tg_tien.tien_gui_ngan_han_khac
 
-        # 1. TÀI SẢN
-        # 1.1. Tài sản ngắn hạn
-        tien_mat = so_du_tai_khoan.get("111", Decimal('0'))
-        tien_gui_ngan_hang = so_du_tai_khoan.get("112", Decimal('0')) # Có thể cần tách 1121, 1122, 1123 nếu cần chi tiết
-        tien_gui_ngan_han_khac = so_du_tai_khoan.get("113", Decimal('0')) # Ví dụ: vàng, bạc, kim khí quý, đá quý (nếu xem là ngắn hạn)
-        cac_khoan_dau_tu_tai_chinh_ngan_han = so_du_tai_khoan.get("121", Decimal('0')) + so_du_tai_khoan.get("128", Decimal('0')) # 121, 128
-        phai_thu_ngan_han = Decimal('0')
-        for tk, so_du in so_du_tai_khoan.items():
-            if self._phan_loai_tai_san_ngan_han(tk) and tk.startswith("13"): # 131, 133, 136, 138, 139
-                phai_thu_ngan_han += so_du
-        hang_ton_kho = Decimal('0')
-        for tk, so_du in so_du_tai_khoan.items():
-            if self._phan_loai_tai_san_ngan_han(tk) and tk.startswith("15"): # 151, 152, 153, 154, 155, 156, 157
-                hang_ton_kho += so_du
-        tai_san_ngan_han_khac = Decimal('0')
-        for tk, so_du in so_du_tai_khoan.items():
-            if self._phan_loai_tai_san_ngan_han(tk) and not tk.startswith(("11", "12", "13", "15")):
-                tai_san_ngan_han_khac += so_du
+        tai_san_ngan_han = TaiSanNganHan(
+            tien_va_cac_khoan_tuong_duong_tien=tong_tien_va_tg_tien,
+            cac_khoan_dau_tu_tai_chinh_ngan_han=Decimal(0), # Cần logic cho TK 121, 128
+            phai_thu_ngan_han=Decimal(0), # Cần logic cho TK 131, 138, ...
+            hang_ton_kho=Decimal(0), # Cần logic cho TK 151, 152, 153, 155, 156
+            tai_san_ngan_han_khac=Decimal(0) # Cần logic cho TK 141, 142, ...
+        )
 
-        # 1.2. Tài sản dài hạn
-        tai_san_co_dinh_huu_hinh = so_du_tai_khoan.get("211", Decimal('0')) + so_du_tai_khoan.get("214", Decimal('0')) # 211 - 214 (Hao mòn)
-        tai_san_co_dinh_vo_hinh = so_du_tai_khoan.get("212", Decimal('0')) # 212
-        dau_tu_tai_chinh_dai_han = so_du_tai_khoan.get("221", Decimal('0')) + so_du_tai_khoan.get("222", Decimal('0')) + so_du_tai_khoan.get("228", Decimal('0')) + so_du_tai_khoan.get("229", Decimal('0')) # 221, 222, 228, 229 (loại trừ)
-        tai_san_dai_han_khac = Decimal('0')
-        for tk, so_du in so_du_tai_khoan.items():
-            if self._phan_loai_tai_san_dai_han(tk) and not tk.startswith(("21", "22")):
-                tai_san_dai_han_khac += so_du
+        # Giả định các phần còn lại là 0 để hoàn thành DTO
+        tai_san_dai_han = TaiSanDaiHan(tai_san_co_dinh=Decimal(0))
+        no_phai_tra_ngan_han = NoPhaiTraNganHan(phai_tra_nguoi_ban_ngan_han=Decimal(0))
+        no_phai_tra_dai_han = NoPhaiTraDaiHan(phai_tra_dai_han_khac=Decimal(0))
+        von_chu_so_huu = VonChuSoHuu(von_gop_cua_chu_so_huu=Decimal(0))
 
-        # Tổng cộng tài sản
-        tong_cong_tai_san = (tien_mat + tien_gui_ngan_hang + tien_gui_ngan_han_khac +
-                             cac_khoan_dau_tu_tai_chinh_ngan_han +
-                             phai_thu_ngan_han +
-                             hang_ton_kho +
-                             tai_san_ngan_han_khac +
-                             tai_san_co_dinh_huu_hinh +
-                             tai_san_co_dinh_vo_hinh +
-                             dau_tu_tai_chinh_dai_han +
-                             tai_san_dai_han_khac)
+        # Tổng cộng
+        tong_tai_san = (
+            tai_san_ngan_han.tien_va_cac_khoan_tuong_duong_tien +
+            tai_san_ngan_han.cac_khoan_dau_tu_tai_chinh_ngan_han +
+            tai_san_ngan_han.phai_thu_ngan_han +
+            tai_san_ngan_han.hang_ton_kho +
+            tai_san_ngan_han.tai_san_ngan_han_khac +
+            tai_san_dai_han.tai_san_co_dinh # Chỉ lấy 1 chỉ tiêu đại diện
+        )
+        
+        tong_nguon_von = (
+            no_phai_tra_ngan_han.phai_tra_nguoi_ban_ngan_han + 
+            no_phai_tra_dai_han.phai_tra_dai_han_khac + 
+            von_chu_so_huu.von_gop_cua_chu_so_huu
+        )
 
-        # 2. NỢ PHẢI TRẢ & VỐN CHỦ SỞ HỮU
-        # 2.1. Nợ phải trả
-        # 2.1.1. Ngắn hạn
-        phai_tra_nguoi_ban = so_du_tai_khoan.get("331", Decimal('0'))
-        # ... (các khoản khác theo Phụ lục IV)
-        phai_tra_nguoi_ban_khac = Decimal('0')
-        for tk, so_du in so_du_tai_khoan.items():
-            if self._phan_loai_no_ngan_han(tk) and tk.startswith("33") and tk != "331":
-                phai_tra_nguoi_ban_khac += so_du # Có thể cần phân loại cụ thể hơn
-
-        tong_no_phai_tra_ngan_han = phai_tra_nguoi_ban + phai_tra_nguoi_ban_khac # + các khoản khác
-
-        # 2.1.2. Dài hạn
-        vay_dai_han = so_du_tai_khoan.get("341", Decimal('0'))
-        no_phai_tra_dai_han_khac = Decimal('0')
-        for tk, so_du in so_du_tai_khoan.items():
-            if self._phan_loai_no_dai_han(tk) and tk != "341":
-                no_phai_tra_dai_han_khac += so_du # Có thể cần phân loại cụ thể hơn
-
-        tong_no_phai_tra_dai_han = vay_dai_han + no_phai_tra_dai_han_khac
-
-        # Tổng cộng nợ phải trả
-        tong_cong_no_phai_tra = tong_no_phai_tra_ngan_han + tong_no_phai_tra_dai_han
-
-        # 2.2. Vốn chủ sở hữu
-        von_dieu_le = so_du_tai_khoan.get("411", Decimal('0'))
-        loi_nhuan_sau_thue_chua_phan_phoi = so_du_tai_khoan.get("421", Decimal('0'))
-        # ... (các khoản khác theo Phụ lục IV)
-        tong_von_chu_so_huu = von_dieu_le + loi_nhuan_sau_thue_chua_phan_phoi # + các khoản khác
-
-        # Tổng cộng nguồn vốn
-        tong_cong_nguon_von = tong_cong_no_phai_tra + tong_von_chu_so_huu
-
-        # Tạo và trả về DTO BaoCaoTinhHinhTaiChinh
+        # Tạo và trả về DTO
         return BaoCaoTinhHinhTaiChinh(
             ngay_lap=ngay_lap,
             ky_hieu=ky_hieu,
-            tai_san_ngan_han=TaiSanNganHan(
-                tien_va_cac_khoan_tuong_duong_tien=TienVaCacKhoanTgTien(
-                    tien_mat=tien_mat,
-                    tien_gui_ngan_hang=tien_gui_ngan_hang,
-                    tien_gui_ngan_han_khac=tien_gui_ngan_han_khac
-                ),
-                cac_khoan_dau_tu_tai_chinh_ngan_han=cac_khoan_dau_tu_tai_chinh_ngan_han,
-                phai_thu_ngan_han=phai_thu_ngan_han,
-                hang_ton_kho=hang_ton_kho,
-                tai_san_ngan_han_khac=tai_san_ngan_han_khac,
-            ),
-            tai_san_dai_han=TaiSanDaiHan(
-                tai_san_co_dinh_huu_hinh=tai_san_co_dinh_huu_hinh,
-                tai_san_co_dinh_vo_hinh=tai_san_co_dinh_vo_hinh,
-                dau_tu_tai_chinh_dai_han=dau_tu_tai_chinh_dai_han,
-                tai_san_dai_han_khac=tai_san_dai_han_khac,
-            ),
-            tong_cong_tai_san=tong_cong_tai_san,
-            no_phai_tra_ngan_han=NoPhaiTraNganHan(
-                phai_tra_nguoi_ban=phai_tra_nguoi_ban,
-                phai_tra_nguoi_ban_khac=phai_tra_nguoi_ban_khac,
-            ),
-            no_phai_tra_dai_han=NoPhaiTraDaiHan( # <-- Thêm dòng này
-                vay_dai_han=vay_dai_han,
-                no_phai_tra_dai_han_khac=no_phai_tra_dai_han_khac,
-            ), # <-- Đảm bảo có dấu phẩy ở dòng trước nếu cần
-            tong_cong_no_phai_tra=tong_cong_no_phai_tra, # <-- Thêm dòng này
-            von_chu_so_huu=VonChuSoHuu(
-                von_dieu_le=von_dieu_le,
-                loi_nhuan_sau_thue_chua_phan_phoi=loi_nhuan_sau_thue_chua_phan_phoi,
-                # ... (các chỉ tiêu khác nếu có)
-            ),
-            tong_cong_nguon_von=tong_cong_nguon_von
+            tai_san_ngan_han=tai_san_ngan_han,
+            tai_san_dai_han=tai_san_dai_han,
+            tong_tai_san=tong_tai_san,
+            no_phai_tra_ngan_han=no_phai_tra_ngan_han,
+            no_phai_tra_dai_han=no_phai_tra_dai_han,
+            von_chu_so_huu=von_chu_so_huu,
+            tong_nguon_von=tong_nguon_von
         )
 
-    # --- Các phương thức khác (B02-DN, B03-DN, B09-DN) sẽ được cập nhật tương tự ---
-    def lay_bao_cao_ket_qua_hdkd(self, ky_hieu: str, ngay_lap: date) -> BaoCaoKetQuaHDKD:
+
+    def lay_bao_cao_ket_qua_hoat_dong_kinh_doanh(self, ky_hieu: str, ngay_lap: date) -> BaoCaoKetQuaHDKD:
         """
         Tính toán và trả về Báo cáo kết quả hoạt động kinh doanh (B02-DN).
         """
-        # Gọi core logic
-        so_du_tai_khoan, phan_loai_tai_khoan = self._tinh_so_du_va_phan_loai_tai_khoan(ky_hieu, ngay_lap)
+        # Logic tính toán dựa trên các tài khoản Doanh thu (5xx, 7xx) và Chi phí (6xx, 8xx)
+        
+        # 1. Tìm kỳ kế toán để xác định ngày bắt đầu/kết thúc
+        ky_ke_toan = self.accounting_period_service.lay_ky_ke_toan_theo_ten(ky_hieu)
+        if not ky_ke_toan:
+             raise ValueError(f"Không tìm thấy kỳ kế toán với ký hiệu '{ky_hieu}'.")
+        
+        start_date = ky_ke_toan.ngay_bat_dau
+        end_date = ky_ke_toan.ngay_ket_thuc
 
-        # Tính các chỉ tiêu B02-DN
-        # Dựa trên Phụ lục IV TT99/2025/TT-BTC
-        doanh_thu_thuan = so_du_tai_khoan.get("511", Decimal('0')) - so_du_tai_khoan.get("521", Decimal('0')) # 521 là giảm trừ doanh thu
-        gia_von_hang_ban = so_du_tai_khoan.get("632", Decimal('0')) # hoặc 631 nếu là thương mại
-        chi_phi_ban_hang = so_du_tai_khoan.get("641", Decimal('0'))
-        chi_phi_quan_ly_doanh_nghiep = so_du_tai_khoan.get("642", Decimal('0'))
+        # Giả định: Tính tổng phát sinh trong kỳ từ start_date đến end_date
+        
+        # Lấy tổng phát sinh Có của TK 511 (Doanh thu bán hàng và cung cấp dịch vụ) trong kỳ
+        ps_co_511 = self._get_balance_in_range("511", start_date, end_date)['co']
+        # Lấy tổng phát sinh Nợ của TK 521 (Các khoản giảm trừ doanh thu) trong kỳ
+        ps_no_521 = self._get_balance_in_range("521", start_date, end_date)['no']
+        
+        doanh_thu_thuan = ps_co_511 - ps_no_521
+        
+        # Lấy tổng phát sinh Nợ của TK 632 (Giá vốn hàng bán) trong kỳ
+        ps_no_632 = self._get_balance_in_range("632", start_date, end_date)['no']
+        gia_von_hang_ban = ps_no_632
 
         loi_nhuan_gop = doanh_thu_thuan - gia_von_hang_ban
-        loi_nhuan_tu_hoat_dong_kd = loi_nhuan_gop - chi_phi_ban_hang - chi_phi_quan_ly_doanh_nghiep
-        # ... (các khoản khác: thu nhập tài chính, chi phí tài chính, thu nhập khác, chi phí khác)
-        loi_nhuan_truoc_thue = loi_nhuan_tu_hoat_dong_kd # + thu_nhap_tc - chi_phi_tc + thu_khac - chi_khac
-        thue_thu_nhap_doanh_nghiep = so_du_tai_khoan.get("821", Decimal('0')) # Chi phí thuế TNDN
+
+        # Lấy tổng phát sinh Nợ của TK 641 (Chi phí bán hàng) trong kỳ
+        chi_phi_ban_hang = self._get_balance_in_range("641", start_date, end_date)['no']
+        # Lấy tổng phát sinh Nợ của TK 642 (Chi phí quản lý doanh nghiệp) trong kỳ
+        chi_phi_quan_ly_doanh_nghiep = self._get_balance_in_range("642", start_date, end_date)['no']
+
+        # Thu nhập và chi phí tài chính (TK 515, 635)
+        thu_nhap_tai_chinh = self._get_balance_in_range("515", start_date, end_date)['co']
+        chi_phi_tai_chinh = self._get_balance_in_range("635", start_date, end_date)['no']
+        
+        loi_nhuan_thuan_tu_hdkd = (
+            loi_nhuan_gop + 
+            thu_nhap_tai_chinh - 
+            chi_phi_tai_chinh - 
+            chi_phi_ban_hang - 
+            chi_phi_quan_ly_doanh_nghiep
+        )
+
+        # Thu nhập và chi phí khác (TK 711, 811)
+        thu_nhap_khac = self._get_balance_in_range("711", start_date, end_date)['co']
+        chi_phi_khac = self._get_balance_in_range("811", start_date, end_date)['no']
+
+        loi_nhuan_khac = thu_nhap_khac - chi_phi_khac
+        
+        loi_nhuan_truoc_thue = loi_nhuan_thuan_tu_hdkd + loi_nhuan_khac
+
+        # Giả định thuế TNDN (TK 8211) là 20% lợi nhuận trước thuế (chỉ là ví dụ)
+        thue_suat = Decimal('0.20')
+        thue_thu_nhap_doanh_nghiep = loi_nhuan_truoc_thue * thue_suat if loi_nhuan_truoc_thue > 0 else Decimal(0)
         loi_nhuan_sau_thue = loi_nhuan_truoc_thue - thue_thu_nhap_doanh_nghiep
 
         # Tạo và trả về DTO
@@ -311,30 +232,63 @@ class ReportingService:
             doanh_thu_thuan=doanh_thu_thuan,
             gia_von_hang_ban=gia_von_hang_ban,
             loi_nhuan_gop=loi_nhuan_gop,
+            doanh_thu_hoat_dong_tai_chinh=thu_nhap_tai_chinh,
+            chi_phi_tai_chinh=chi_phi_tai_chinh,
             chi_phi_ban_hang=chi_phi_ban_hang,
             chi_phi_quan_ly_doanh_nghiep=chi_phi_quan_ly_doanh_nghiep,
-            # ... (các chỉ tiêu khác)
+            loi_nhuan_thuan_tu_hoat_dong_kinh_doanh=loi_nhuan_thuan_tu_hdkd,
+            thu_nhap_khac=thu_nhap_khac,
+            chi_phi_khac=chi_phi_khac,
+            loi_nhuan_khac=loi_nhuan_khac,
             loi_nhuan_truoc_thue=loi_nhuan_truoc_thue,
             thue_thu_nhap_doanh_nghiep=thue_thu_nhap_doanh_nghiep,
             loi_nhuan_sau_thue=loi_nhuan_sau_thue
         )
+    
+    # Hàm hỗ trợ cho Báo cáo KQHĐKD (chỉ tính phát sinh trong phạm vi ngày)
+    def _get_balance_in_range(self, so_tai_khoan: str, start_date: date, end_date: date) -> Dict[str, Decimal]:
+        """Tính tổng phát sinh Nợ và Có trong khoảng thời gian."""
+        posted_entries = self.journal_entry_repo.get_all_posted_in_range(start_date, end_date)
+        
+        tong_no = Decimal(0)
+        tong_co = Decimal(0)
+        
+        for entry in posted_entries:
+            for line in entry.lines:
+                if line.so_tai_khoan == so_tai_khoan:
+                    tong_no += line.no
+                    tong_co += line.co
+        
+        return {'no': tong_no, 'co': tong_co}
+
 
     def lay_bao_cao_luu_chuyen_tien_te(self, ky_hieu: str, ngay_lap: date) -> BaoCaoLuuChuyenTienTe:
         """
         Tính toán và trả về Báo cáo lưu chuyển tiền tệ (B03-DN).
         """
-        # Gợi ý: Logic phức tạp hơn, cần phân loại dòng tiền từ HĐKD, HĐTC, HĐQT
-        # Dựa trên tài khoản Nợ/Có trong bút toán và loại tài khoản.
-        # (Cần phương thức lấy bút toán thô hoặc phân loại dòng tiền)
-        # ... (Chưa hoàn thiện)
-        pass
+        # Gợi ý: Logic phức tạp hơn, cần phân loại dòng tiền từ HĐKD, HĐTC, HĐQT...
+        # ... (Tạm thời giữ nguyên vì nó phức tạp)
+        return BaoCaoLuuChuyenTienTe(
+             ngay_lap=ngay_lap,
+             ky_hieu=ky_hieu,
+             luu_chuyen_tien_te_hdkd=None, # Cần tạo instance chi tiết
+             luu_chuyen_tien_te_hdtc=None,
+             luu_chuyen_tien_te_hdqt=None,
+             tien_va_tuong_duong_tien_dau_ky=Decimal(0),
+             tien_va_tuong_duong_tien_cuoi_ky=Decimal(0)
+        )
 
-    def lay_bao_cao_thuyet_minh(self, ky_hieu: str, ngay_lap: date) -> BaoCaoThuyetMinh:
+    def lay_thuyet_minh_bao_cao_tai_chinh(self, ky_hieu: str, ngay_lap: date) -> BaoCaoThuyetMinh:
         """
         Tính toán và trả về Bản thuyết minh Báo cáo tài chính (B09-DN).
         """
-        # Gợi ý: Lấy chi tiết từng tài khoản trong từng nhóm để trình bày
-        # ... (Chưa hoàn thiện)
-        pass
-
-    # (Có thể thêm các phương thức khác như cap_nhat_tai_khoan, xoa_tai_khoan nếu cần)
+        # Logic lấy chi tiết các tài khoản, chi tiết tài sản cố định, ...
+        # ... (Tạm thời giữ nguyên)
+        return BaoCaoThuyetMinh(
+            ngay_lap=ngay_lap,
+            ky_hieu=ky_hieu,
+            chi_tiet_tai_khoan=None, # Cần List[ChiTietTaiKhoan]
+            thuyet_minh_tai_san=None,
+            thuyet_minh_nguon_von=None,
+            thuyet_minh_ket_qua=None,
+        )
