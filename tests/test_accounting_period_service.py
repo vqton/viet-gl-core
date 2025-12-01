@@ -1,57 +1,70 @@
-# File: tests/test_accounting_period_service.py
-
 import unittest
 from unittest.mock import Mock
-from app.application.services.accounting_period_service import AccountingPeriodService
-from app.domain.models.journal_entry import JournalEntry,JournalEntryLine
 from decimal import Decimal
+from datetime import date
+
+from app.application.services.accounting_period_service import AccountingPeriodService
+from app.domain.models.accounting_period import KyKeToan
+from app.domain.models.journal_entry import JournalEntry, JournalEntryLine
+from app.domain.models.account import TaiKhoan, LoaiTaiKhoan
+
 
 class TestAccountingPeriodService(unittest.TestCase):
 
     def setUp(self):
+        # Mock cả 2 repository: dành cho AccountingPeriod và JournalEntry
+        self.mock_period_repo = Mock()
         self.mock_je_repo = Mock()
-        self.service = AccountingPeriodService(self.mock_je_repo)
+        # 👇 Truyền ĐÚNG TÊN THAM SỐ theo constructor của AccountingPeriodService
+        self.service = AccountingPeriodService(
+            repository=self.mock_period_repo,
+            journal_entry_repo=self.mock_je_repo
+        )
 
     def test_khoa_ky_thanh_cong(self):
-        """
-        Test khóa sổ thành công khi tất cả bút toán đều đã "Posted".
-        """
-          # Tạo dòng bút toán giả định (ví dụ: Nợ 111, Có 331)
-        lines = [
-                JournalEntryLine(so_tai_khoan="111", no=Decimal('100'), co=Decimal('0')),
-                JournalEntryLine(so_tai_khoan="331", no=Decimal('0'), co=Decimal('100'))
-                 ]
-        # lines = [JournalEntryLine(so_tai_khoan="331", no=Decimal('0'), co=Decimal('100'))]
-        # Tạo các bút toán giả định
-        entries = [
-            JournalEntry(id=1, so_phieu="PT001", trang_thai="Posted",  lines=lines),
-            # JournalEntry(id=2, so_phieu="PT002", trang_thai="Posted",  lines=lines2),
-        ]
-        self.mock_je_repo.get_all_by_period.return_value = entries
+        # Mock master data kỳ kế toán
+        ky = KyKeToan(
+            id=1,
+            ten_ky="Năm 2025",
+            ngay_bat_dau=date(2025, 1, 1),
+            ngay_ket_thuc=date(2025, 12, 31),
+            trang_thai="Open"
+        )
+        self.mock_period_repo.get_by_id.return_value = ky
+        # 👇 MOCK: Không có bút toán nháp → trả về list rỗng
+        self.mock_je_repo.get_draft_entries_by_date_range.return_value = []
 
-        # Gọi hàm khóa sổ
         result = self.service.khoa_ky(1)
-
-        # Kiểm tra
         self.assertTrue(result)
-        # Kiểm tra rằng các bút toán đã được cập nhật trạng thái thành "Locked"
-        for je in entries:
-            self.assertEqual(je.trang_thai, "Locked")
+        self.mock_period_repo.update_trang_thai.assert_called_once_with(1, "Locked")
 
     def test_khoa_ky_that_bai_vi_chua_posted(self):
-        """
-        Test khóa sổ thất bại khi có bút toán chưa "Posted".
-        """
-                  # Tạo dòng bút toán giả định (ví dụ: Nợ 111, Có 331)
-        lines = [JournalEntryLine(so_tai_khoan="111", no=Decimal('100'), co=Decimal('0')),
-                  JournalEntryLine(so_tai_khoan="331", no=Decimal('0'), co=Decimal('100'))]
-        # lines2 = []
-        # Tạo các bút toán giả định
+        # Mock master data kỳ kế toán
+        ky = KyKeToan(
+            id=1,
+            ten_ky="Năm 2025",
+            ngay_bat_dau=date(2025, 1, 1),
+            ngay_ket_thuc=date(2025, 12, 31),
+            trang_thai="Open"
+        )
+        self.mock_period_repo.get_by_id.return_value = ky
+        # Mock: Có 1 bút toán nháp
         entries = [
-            JournalEntry(id=1, so_phieu="PT001", trang_thai="Draft",lines=lines), # Không được phép khóa
-            # JournalEntry(id=2, so_phieu="PT002", trang_thai="Posted",lines=lines2),
+            JournalEntry(
+                id=1,
+                ngay_ct=date.today(),
+                so_phieu="PT001",
+                mo_ta="Mua hàng",
+                lines=[
+                    JournalEntryLine(so_tai_khoan="111", no=Decimal('100'), co=Decimal('0')),
+                    JournalEntryLine(so_tai_khoan="331", no=Decimal('0'), co=Decimal('100')),
+                ],
+                trang_thai="Draft"
+            )
         ]
-        self.mock_je_repo.get_all_by_period.return_value = entries
+        self.mock_je_repo.get_draft_entries_by_date_range.return_value = entries
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             self.service.khoa_ky(1)
+        # 👇 SỬA MESSAGE CHO KHỚP VỚI IMPLEMENTATION
+        self.assertIn("Vẫn còn", str(context.exception))

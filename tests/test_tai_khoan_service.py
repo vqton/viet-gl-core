@@ -16,6 +16,9 @@ class TestTaiKhoanService(unittest.TestCase):
         """Test tạo tài khoản thành công."""
         tai_khoan_moi = TaiKhoan(so_tai_khoan="111", ten_tai_khoan="Tiền mặt", loai_tai_khoan=LoaiTaiKhoan.TAI_SAN)
         
+         # 👇 CẤU HÌNH MOCK CHO get_by_id → TRẢ VỀ None (chưa tồn tại)
+        self.mock_repository.get_by_id.return_value = None
+        
         # Cấu hình mock
         self.mock_repository.add.return_value = tai_khoan_moi
         
