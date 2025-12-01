@@ -22,7 +22,10 @@ from app.domain.models.report import (
     ThuyetMinhNguonVon,
     ThuyetMinhKetQua,
     TongTaiSan,
-    TongNguonVon
+    TongNguonVon,
+    LuuChuyenTienTeHDDT,
+    LuuChuyenTienTeHDTC,
+    LuuChuyenTienTeHDKD
 )
 
 # Import Domain Models và Enum Kế toán
@@ -342,23 +345,115 @@ class ReportingService:
     # Cash flow (placeholder)
     # ----------------------------
     def lay_bao_cao_luu_chuyen_tien_te(self, ky_hieu: str, ngay_lap: date, ngay_bat_dau: date, ngay_ket_thuc: date) -> BaoCaoLuuChuyenTienTe:
-        luu_chuyen_tien_te_hdkd = {
-            "loi_nhuan_truoc_thue": Decimal(0),
-            "khau_hao_tscd": Decimal(0),
-            "lai_lo_hoat_dong_dau_tu": Decimal(0),
-            "tien_thu_tu_ban_hang_va_cung_cap_dv": Decimal(0),
-            "tien_chi_tra_cho_nha_cung_cap_va_nhan_vien": Decimal(0),
-            "luu_chuyen_thuan_tu_hdkd": Decimal(0),
-        }
+        """
+        [Nghiệp vụ] Lập Báo cáo lưu chuyển tiền tệ (B03-DN) theo Thông tư 99/2025/TT-BTC.
+        
+        📌 CƠ SỞ PHÁP LÝ:
+        - Điều 17.2a TT99: Bắt buộc lập B03-DN.
+        - Phụ lục IV TT99: Mẫu B03-DN — trình bày theo phương pháp gián tiếp.
+        
+        📌 PHẠM VI TRIỂN KHAI:
+        - Hoạt động kinh doanh (HĐKD): Phương pháp gián tiếp (hoàn chỉnh).
+        - Hoạt động đầu tư (HĐĐT): Mua/bán TSCĐ, cho vay, thu hồi vốn.
+        - Hoạt động tài chính (HĐTC): Vay nợ, trả nợ, cổ tức.
+        """
+        # === 1. Lấy lợi nhuận trước thuế từ B02-DN ===
+        b02 = self.lay_bao_cao_ket_qua_hdkd(ky_hieu, ngay_lap, ngay_bat_dau, ngay_ket_thuc)
+        loi_nhuan_truoc_thue = b02.tong_loi_nhuan_truoc_thue
+
+        # === 2. ĐIỀU CHỈNH CHO HĐKD (phương pháp gián tiếp) ===
+        khau_hao = self._tinh_phat_sinh_tai_khoan("214", "CO", ngay_bat_dau, ngay_ket_thuc)
+        lai_vay = self._tinh_phat_sinh_tai_khoan("335", "NO", ngay_bat_dau, ngay_ket_thuc)
+        delta_phai_thu = self._tinh_thay_doi_so_du("131", ngay_bat_dau, ngay_ket_thuc)
+        delta_hang_ton = self._tinh_thay_doi_so_du("156", ngay_bat_dau, ngay_ket_thuc)
+        delta_phai_tra = self._tinh_thay_doi_so_du("331", ngay_bat_dau, ngay_ket_thuc)
+
+        luu_chuyen_hdkd = (
+            loi_nhuan_truoc_thue
+            + khau_hao
+            + lai_vay
+            - delta_phai_thu
+            - delta_hang_ton
+            + delta_phai_tra
+        ).quantize(Decimal("0.01"))
+
+        # === 3. HOẠT ĐỘNG ĐẦU TƯ (HĐĐT) — Phụ lục IV, Mã số 21 → 25 ===
+        # a) Tiền chi mua sắm, xây dựng TSCĐ (mã 21)
+        tien_chi_mua_tscd = self._tinh_chenh_lech_tai_san_dai_han("211", ngay_bat_dau, ngay_ket_thuc)
+        
+        # b) Tiền thu thanh lý, nhượng bán TSCĐ (mã 22)
+        tien_thu_ban_tscd = Decimal(0)  # Cần tích hợp từ bút toán thanh lý (tạm hardcode)
+
+        # c) Tiền chi cho vay, mua công cụ nợ (mã 24)
+        tien_chi_cho_vay = self._tinh_phat_sinh_tai_khoan("121", "NO", ngay_bat_dau, ngay_ket_thuc)  # Đầu tư ngắn hạn
+
+        # d) Tiền thu hồi cho vay, bán lại công cụ nợ (mã 25)
+        tien_thu_hoi_vay = self._tinh_phat_sinh_tai_khoan("121", "CO", ngay_bat_dau, ngay_ket_thuc)
+
+        luu_chuyen_hddt = (
+            -tien_chi_mua_tscd
+            + tien_thu_ban_tscd
+            - tien_chi_cho_vay
+            + tien_thu_hoi_vay
+        ).quantize(Decimal("0.01"))
+
+        # === 4. HOẠT ĐỘNG TÀI CHÍNH (HĐTC) — Phụ lục IV, Mã số 31 → 36 ===
+        # a) Tiền thu từ phát hành cổ phiếu (mã 31)
+        tien_thu_co_phieu = Decimal(0)  # Thường = 0 nếu không gọi vốn
+
+        # b) Tiền thu từ vay (mã 32)
+        tien_thu_vay = self._tinh_chenh_lech_no_dai_han("341", ngay_bat_dau, ngay_ket_thuc)
+
+        # c) Tiền chi trả gốc vay (mã 33)
+        tien_chi_tra_goc_vay = self._tinh_tra_goc_vay("341", ngay_bat_dau, ngay_ket_thuc)
+
+        # d) Tiền chi trả cổ tức, lợi nhuận (mã 36)
+        tien_chi_tra_co_tuc = self._tinh_phat_sinh_tai_khoan("3387", "CO", ngay_bat_dau, ngay_ket_thuc)  # Doanh thu chưa thực hiện chi trả
+
+        luu_chuyen_hdtc = (
+            tien_thu_co_phieu
+            + tien_thu_vay
+            - tien_chi_tra_goc_vay
+            - tien_chi_tra_co_tuc
+        ).quantize(Decimal("0.01"))
+
+        # === 5. TỔNG LƯU CHUYỂN & TIỀN CUỐI KỲ ===
+        luu_chuyen_thuan_trong_ky = (luu_chuyen_hdkd + luu_chuyen_hddt + luu_chuyen_hdtc).quantize(Decimal("0.01"))
+        tien_dau_ky = (
+            self._get_opening_balance("111", ngay_bat_dau)
+            + self._get_opening_balance("112", ngay_bat_dau)
+        ).quantize(Decimal("0.01"))
+        tien_cuoi_ky = (tien_dau_ky + luu_chuyen_thuan_trong_ky).quantize(Decimal("0.01"))
+
         return BaoCaoLuuChuyenTienTe(
             ngay_lap=ngay_lap,
             ky_hieu=ky_hieu,
-            luu_chuyen_tien_te_hdkd=luu_chuyen_tien_te_hdkd,
-            luu_chuyen_tien_te_hddt={"luu_chuyen_thuan_tu_hddt": Decimal(0)},
-            luu_chuyen_tien_te_hdtc={"luu_chuyen_thuan_tu_hdtc": Decimal(0)},
-            luu_chuyen_tien_thuan_trong_ky=Decimal(0),
-            tien_va_tuong_duong_tien_dau_ky=self._get_opening_balance('111', ngay_bat_dau) + self._get_opening_balance('112', ngay_bat_dau),
-            tien_va_tuong_duong_tien_cuoi_ky=Decimal(0)
+            luu_chuyen_tien_te_hdkd=LuuChuyenTienTeHDKD(
+                loi_nhuan_truoc_thue=loi_nhuan_truoc_thue,
+                dieu_chinh_khau_hao_ts_co_dinh=khau_hao,
+                tien_lai_phai_tra_chi_tra=lai_vay,
+                tang_giam_cac_khoan_phai_thu=delta_phai_thu,
+                tang_giam_hang_ton_kho=delta_hang_ton,
+                tang_giam_cac_khoan_phai_tra=delta_phai_tra,
+                luu_chuyen_tien_thuan_tu_hdkd=luu_chuyen_hdkd
+            ),
+            luu_chuyen_tien_te_hddt=LuuChuyenTienTeHDDT(
+                tien_chi_mua_sam_xay_dung_ts_dai_han=tien_chi_mua_tscd,
+                tien_thu_thanh_ly_nhuong_ban_ts_dai_han=tien_thu_ban_tscd,
+                tien_chi_cho_vay_mua_cac_cong_cu_no=tien_chi_cho_vay,
+                tien_thu_hoi_cho_vay_ban_lai_cac_cong_cu_no=tien_thu_hoi_vay,
+                luu_chuyen_tien_thuan_tu_hddt=luu_chuyen_hddt
+            ),
+            luu_chuyen_tien_te_hdtc=LuuChuyenTienTeHDTC(
+                tien_thu_tu_phat_hanh_co_phieu=tien_thu_co_phieu,
+                tien_thu_tu_vay=tien_thu_vay,
+                tien_chi_tra_goc_vay=tien_chi_tra_goc_vay,
+                tien_chi_tra_co_tuc_loi_nhuan=tien_chi_tra_co_tuc,
+                luu_chuyen_tien_thuan_tu_hdtc=luu_chuyen_hdtc
+            ),
+            luu_chuyen_tien_thuan_trong_ky=luu_chuyen_thuan_trong_ky,
+            tien_va_tuong_duong_tien_dau_ky=tien_dau_ky,
+            tien_va_tuong_duong_tien_cuoi_ky=tien_cuoi_ky
         )
 
     # ----------------------------
@@ -401,3 +496,45 @@ class ReportingService:
             thong_tin_giao_dich_voi_cac_ben_lien_quan="Không có",
             cac_su_kien_sau_ngay_ket_thuc_ky_ke_toan="Không có"
         )
+        
+    def _tinh_phat_sinh_tai_khoan(self, so_tai_khoan: str, loai_ps: str, ngay_bat_dau: date, ngay_ket_thuc: date) -> Decimal:
+        """Tính tổng phát sinh Nợ/CO của một tài khoản trong kỳ."""
+        _, ps_no, ps_co, _, _ = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_ket_thuc)
+        return ps_no if loai_ps == "NO" else ps_co
+
+    def _tinh_thay_doi_so_du(self, so_tai_khoan: str, ngay_bat_dau: date, ngay_ket_thuc: date) -> Decimal:
+        """Tính thay đổi số dư = Số dư cuối kỳ - Số dư đầu kỳ."""
+        # Số dư đầu kỳ
+        _, _, _, sd_dk_no, sd_dk_co = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_bat_dau)
+        sd_dk = sd_dk_no - sd_dk_co if sd_dk_no >= sd_dk_co else -(sd_dk_co - sd_dk_no)
+        
+        # Số dư cuối kỳ
+        _, _, _, sd_ck_no, sd_ck_co = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_ket_thuc)
+        sd_ck = sd_ck_no - sd_ck_co if sd_ck_no >= sd_ck_co else -(sd_ck_co - sd_ck_no)
+        
+        return (sd_ck - sd_dk).quantize(Decimal("0.01"))
+    
+    def _tinh_chenh_lech_tai_san_dai_han(self, so_tai_khoan: str, ngay_bat_dau: date, ngay_ket_thuc: date) -> Decimal:
+        """Tính tiền chi mua TSCĐ = Số dư cuối kỳ - Số dư đầu kỳ (chỉ tính tăng)"""
+        _, _, _, sd_dk_no, sd_dk_co = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_bat_dau)
+        sd_dk = sd_dk_no - sd_dk_co
+
+        _, _, _, sd_ck_no, sd_ck_co = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_ket_thuc)
+        sd_ck = sd_ck_no - sd_ck_co
+
+        chenh_lech = sd_ck - sd_dk
+        return chenh_lech if chenh_lech > 0 else Decimal(0)  # Chỉ lấy phần tăng
+    
+    def _tinh_chenh_lech_no_dai_han(self, so_tai_khoan: str, ngay_bat_dau: date, ngay_ket_thuc: date) -> Decimal:
+        """Tính tiền thu từ vay = Tăng nợ phải trả"""
+        _, _, _, sd_dk_no, sd_dk_co = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_bat_dau)
+        sd_dk = sd_dk_co - sd_dk_no  # Nợ phải trả: Có - Nợ
+
+        _, _, _, sd_ck_no, sd_ck_co = self._tinh_so_du_tai_khoan_theo_ngay(so_tai_khoan, ngay_bat_dau, ngay_ket_thuc)
+        sd_ck = sd_ck_co - sd_ck_no
+
+        return (sd_ck - sd_dk).quantize(Decimal("0.01"))
+
+    def _tinh_tra_goc_vay(self, so_tai_khoan: str, ngay_bat_dau: date, ngay_ket_thuc: date) -> Decimal:
+        """Tính tiền chi trả gốc vay = Phát sinh Nợ TK 341"""
+        return self._tinh_phat_sinh_tai_khoan(so_tai_khoan, "NO", ngay_bat_dau, ngay_ket_thuc)

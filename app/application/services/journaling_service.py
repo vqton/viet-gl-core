@@ -181,115 +181,129 @@ class JournalingService:
     # Tùy thuộc vào yêu cầu của API.
     def ket_chuyen_cuoi_ky(self, ky_hieu: str, ngay_ket_chuyen: date) -> List[JournalEntry]:
         """
-        [Nghiệp vụ] Thực hiện kết chuyển cuối kỳ theo TT99/2025/TT-BTC.
+        [Nghiệp vụ] Thực hiện kết chuyển cuối kỳ theo Thông tư 99/2025/TT-BTC.
         
-        Các bước:
-        1. Kết chuyển doanh thu (TK 511, 512, 515) → Nợ 911 / Có Doanh thu
-        2. Kết chuyển chi phí (TK 632, 641, 642, 635, 811) → Nợ Chi phí / Có 911
-        3. Kết chuyển lãi/lỗ: 
-        - Nếu LÃI: Nợ 911 / Có 421
-        - Nếu LỖ: Nợ 421 / Có 911
+        📌 BUSINESS RULE (TT99):
+        - Điều 24: Cuối kỳ kế toán, doanh nghiệp phải kết chuyển toàn bộ doanh thu, 
+        thu nhập khác và chi phí để xác định kết quả kinh doanh.
+        - Phụ lục II: Hệ thống tài khoản KHÔNG CÓ tài khoản 911 "Xác định kết quả kinh doanh".
+        - ➤ Do đó: KẾT CHUYỂN TRỰC TIẾP từ Doanh thu/Chi phí → Tài khoản 421 "Lợi nhuận sau thuế chưa phân phối".
 
-        Yêu cầu:
-        - Tất cả bút toán trong kỳ đã được Posted.
-        - Tài khoản 911 và 421 phải tồn tại.
+        📌 LUỒNG KẾT CHUYỂN CHUẨN:
+        1. NỢ các TK Doanh thu (511, 512, 515...) / CÓ 421 → Ghi nhận doanh thu vào lợi nhuận.
+        2. NỢ 421 / CÓ các TK Chi phí (632, 641, 642, 635, 811...) → Ghi nhận chi phí làm giảm lợi nhuận.
+        3. Số dư TK 421 sau kết chuyển = Lợi nhuận sau thuế chưa phân phối của kỳ.
+
+        📌 LƯU Ý KỸ THUẬT:
+        - Không tạo bút toán kết chuyển lãi/lỗ riêng (khác với TT200).
+        - Tất cả bút toán kết chuyển đều ở trạng thái "Draft" → được ghi sổ ngay sau khi tạo.
+        - Chỉ kết chuyển các tài khoản có phát sinh thực tế (tránh bút toán rỗng).
+
+        📌 CẢNH BÁO VI PHẠM:
+        - Nếu sử dụng TK 911 → VI PHẠM TT99 → Báo cáo tài chính KHÔNG HỢP LỆ.
         """
-        # 1. Lấy tất cả bút toán đã Posted trong kỳ
-        # (Giả định bạn có phương thức get_all_posted_in_period hoặc tương đương)
-        # Ở đây ta dùng get_all() và lọc theo trạng thái Posted
-        all_entries = self.repository.get_all()
-        posted_entries = [e for e in all_entries if e.trang_thai == "Posted"]
+        nam = ngay_ket_chuyen.year
 
-        # 2. Tính tổng phát sinh Có của doanh thu và Nợ của chi phí
-        doanh_thu_tong = Decimal(0)
-        chi_phi_tong = Decimal(0)
+        # === 1. Danh sách tài khoản theo Phụ lục II TT99 ===
+        tk_doanh_thu = ["511", "512", "515"]  # Phụ lục II, Mục V: Doanh thu
+        tk_chi_phi = [
+            "632",  # Giá vốn hàng bán
+            "641",  # Chi phí bán hàng
+            "642",  # Chi phí QLDN
+            "635",  # Chi phí tài chính
+            "811",  # Chi phí khác
+            "821"   # Thuế TNDN hiện hành
+        ]  # Phụ lục II, Mục VI: Chi phí
 
-        # Tài khoản doanh thu (theo Phụ lục II TT99)
-        tk_doanh_thu = ["511", "512", "515"]
-        # Tài khoản chi phí
-        tk_chi_phi = ["632", "641", "642", "635", "811"]
+        # === 2. Tính tổng phát sinh trong năm ===
+        doanh_thu_tong = sum(
+            self._tinh_phat_sinh_tai_khoan(tk, "CO", nam) for tk in tk_doanh_thu
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        for entry in posted_entries:
-            for line in entry.lines:
-                if line.so_tai_khoan in tk_doanh_thu:
-                    doanh_thu_tong += line.co  # Doanh thu ghi Có
-                elif line.so_tai_khoan in tk_chi_phi:
-                    chi_phi_tong += line.no    # Chi phí ghi Nợ
-
-        # Làm tròn 2 chữ số thập phân
-        doanh_thu_tong = doanh_thu_tong.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        chi_phi_tong = chi_phi_tong.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        chi_phi_tong = sum(
+            self._tinh_phat_sinh_tai_khoan(tk, "NO", nam) for tk in tk_chi_phi
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         ket_chuyen_entries = []
 
-        # 3. Bút toán kết chuyển doanh thu: Nợ 911 / Có Doanh thu
+        # === 3. KẾT CHUYỂN DOANH THU → CÓ 421 (TRỰC TIẾP, KHÔNG QUA 911) ===
         if doanh_thu_tong > 0:
             lines_dt = []
-            # Ghi Nợ 911
-            lines_dt.append(JournalEntryLine(so_tai_khoan="911", no=doanh_thu_tong, co=Decimal(0)))
-            # Ghi Có từng TK doanh thu (đơn giản hóa: gộp chung)
+            # Ghi NỢ từng TK doanh thu (theo phát sinh thực tế)
             for tk in tk_doanh_thu:
-                # Tính tổng Có từng TK (nếu cần chi tiết)
-                pass
-            # Gộp chung: Có tổng doanh thu
-            lines_dt.append(JournalEntryLine(so_tai_khoan="511", no=Decimal(0), co=doanh_thu_tong))
+                ps_co = self._tinh_phat_sinh_tai_khoan(tk, "CO", nam)
+                if ps_co > 0:
+                    lines_dt.append(JournalEntryLine(
+                        so_tai_khoan=tk,
+                        no=ps_co,
+                        co=Decimal(0)
+                    ))
+            # Ghi CÓ 421 → Tăng lợi nhuận
+            lines_dt.append(JournalEntryLine(
+                so_tai_khoan="421",
+                no=Decimal(0),
+                co=doanh_thu_tong
+            ))
             bt_dt = JournalEntry(
                 ngay_ct=ngay_ket_chuyen,
                 so_phieu=f"KC-DOANH-THU-{ky_hieu}",
-                mo_ta=f"Kết chuyển doanh thu kỳ {ky_hieu}",
+                mo_ta=f"Kết chuyển doanh thu kỳ {ky_hieu} (TT99 Điều 24)",
                 lines=lines_dt,
                 trang_thai="Draft"
             )
             bt_dt = self.tao_phieu_ke_toan(bt_dt)
+            self.post_phieu_ke_toan(bt_dt.id)
             ket_chuyen_entries.append(bt_dt)
 
-        # 4. Bút toán kết chuyển chi phí: Nợ Chi phí / Có 911
+        # === 4. KẾT CHUYỂN CHI PHÍ → NỢ 421 (TRỰC TIẾP, KHÔNG QUA 911) ===
         if chi_phi_tong > 0:
             lines_cp = []
-            # Ghi Nợ tổng chi phí (gộp)
-            lines_cp.append(JournalEntryLine(so_tai_khoan="632", no=chi_phi_tong, co=Decimal(0)))
-            # Ghi Có 911
-            lines_cp.append(JournalEntryLine(so_tai_khoan="911", no=Decimal(0), co=chi_phi_tong))
+            # Ghi NỢ 421 → Giảm lợi nhuận
+            lines_cp.append(JournalEntryLine(
+                so_tai_khoan="421",
+                no=chi_phi_tong,
+                co=Decimal(0)
+            ))
+            # Ghi CÓ từng TK chi phí (theo phát sinh thực tế)
+            for tk in tk_chi_phi:
+                ps_no = self._tinh_phat_sinh_tai_khoan(tk, "NO", nam)
+                if ps_no > 0:
+                    lines_cp.append(JournalEntryLine(
+                        so_tai_khoan=tk,
+                        no=Decimal(0),
+                        co=ps_no
+                    ))
             bt_cp = JournalEntry(
                 ngay_ct=ngay_ket_chuyen,
                 so_phieu=f"KC-CHI-PHI-{ky_hieu}",
-                mo_ta=f"Kết chuyển chi phí kỳ {ky_hieu}",
+                mo_ta=f"Kết chuyển chi phí kỳ {ky_hieu} (TT99 Điều 24)",
                 lines=lines_cp,
                 trang_thai="Draft"
             )
             bt_cp = self.tao_phieu_ke_toan(bt_cp)
+            self.post_phieu_ke_toan(bt_cp.id)
             ket_chuyen_entries.append(bt_cp)
 
-        # 5. Tính lãi/lỗ
-        lai_lo = doanh_thu_tong - chi_phi_tong
-        lai_lo = lai_lo.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-        if lai_lo != 0:
-            lines_kqkd = []
-            if lai_lo > 0:
-                # LÃI: Nợ 911 / Có 421
-                lines_kqkd.append(JournalEntryLine(so_tai_khoan="911", no=lai_lo, co=Decimal(0)))
-                lines_kqkd.append(JournalEntryLine(so_tai_khoan="421", no=Decimal(0), co=lai_lo))
-                mo_ta = f"Kết chuyển LÃI kỳ {ky_hieu}"
-            else:
-                # LỖ: Nợ 421 / Có 911
-                loss = abs(lai_lo)
-                lines_kqkd.append(JournalEntryLine(so_tai_khoan="421", no=loss, co=Decimal(0)))
-                lines_kqkd.append(JournalEntryLine(so_tai_khoan="911", no=Decimal(0), co=loss))
-                mo_ta = f"Kết chuyển LỖ kỳ {ky_hieu}"
-
-            bt_kqkd = JournalEntry(
-                ngay_ct=ngay_ket_chuyen,
-                so_phieu=f"KC-KQKD-{ky_hieu}",
-                mo_ta=mo_ta,
-                lines=lines_kqkd,
-                trang_thai="Draft"
-            )
-            bt_kqkd = self.tao_phieu_ke_toan(bt_kqkd)
-            ket_chuyen_entries.append(bt_kqkd)
-
-        # 6. Đăng sổ (Post) các bút toán kết chuyển
-        for bt in ket_chuyen_entries:
-            self.post_phieu_ke_toan(bt.id)
+        # === 5. KHÔNG CẦN BƯỚC KẾT CHUYỂN LÃI/LỖ ===
+        # → Vì đã ghi trực tiếp vào 421, số dư 421 chính là kết quả kinh doanh ròng.
+        # → Đảm bảo tuân thủ TT99 và tránh vi phạm do sử dụng TK 911.
 
         return ket_chuyen_entries
+    
+    def _tinh_phat_sinh_tai_khoan(self, so_tai_khoan: str, loai_ps: str, nam: int) -> Decimal:
+        """
+        Tính phát sinh Nợ hoặc Có của một tài khoản trong năm.
+        loai_ps = 'NO' hoặc 'CO'
+        """
+        ngay_dau_nam = date(nam, 1, 1)
+        ngay_ket_nam = date(nam, 12, 31)
+        all_entries = self.repository.get_all_posted_in_range(ngay_dau_nam, ngay_ket_nam)
+        tong = Decimal(0)
+        for entry in all_entries:
+            for line in entry.lines:
+                if line.so_tai_khoan == so_tai_khoan:
+                    if loai_ps == "NO":
+                        tong += line.no
+                    elif loai_ps == "CO":
+                        tong += line.co
+        return tong.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

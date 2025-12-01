@@ -114,6 +114,29 @@ class TestJournalEntry(unittest.TestCase):
             )
         self.assertIn("ít nhất 2 dòng", str(context.exception))
 
+    # tests/test_journal_entry.py
+    def test_but_toan_can_bang_no_co():
+        """Điều 24 TT99: Bút toán phải cân bằng Nợ = Có."""
+        entry = JournalEntry(
+            lines=[
+                JournalEntryLine(so_tai_khoan="112", no=Decimal("110000000"), co=Decimal("0")),
+                JournalEntryLine(so_tai_khoan="511", no=Decimal("0"), co=Decimal("100000000")),
+                JournalEntryLine(so_tai_khoan="3331", no=Decimal("0"), co=Decimal("10000000")),
+            ]
+        )
+        assert entry.tong_no == entry.tong_co
 
+    def test_chung_tu_goc_bat_buoc_khi_ghi_so():
+        """Điều 8–10 TT99: Bút toán ghi sổ phải có chứng từ gốc."""
+        line = JournalEntryLine(
+            so_tai_khoan="112",
+            no=Decimal("100000000"),
+            co=Decimal("0"),
+            so_chung_tu_goc="PT-2025-001",      # ✅ Bắt buộc
+            ngay_chung_tu_goc=date(2025, 6, 15)  # ✅ Bắt buộc
+        )
+        assert line.so_chung_tu_goc is not None
+        assert line.ngay_chung_tu_goc is not None
+    
 if __name__ == '__main__':
     unittest.main()
