@@ -1,0 +1,837 @@
+from datetime import date
+from typing import List, Optional
+from app.domain.models.accounting_period import KyKeToan as KyKeToanDomain
+from app.infrastructure.repositories.accounting_period_repository import AccountingPeriodRepository
+from app.infrastructure.repositories.journal_entry_repository import JournalEntryRepository 
+from app.domain.models.journal_entry import JournalEntry as JournalEntryDomain 
+
+class AccountingPeriodService:
+    """
+    Dịch vụ quản lý các quy trình nghiệp vụ liên quan đến Kỳ Kế Toán.
+    """
+    def __init__(self, repository: AccountingPeriodRepository, journal_entry_repo: JournalEntryRepository):
+        self.repository = repository
+        self.journal_entry_repo = journal_entry_repo
+
+    def tao_ky_ke_toan(self, ky_ke_toan_domain: KyKeToanDomain) -> KyKeToanDomain:
+        """
+        Tạo mới một kỳ kế toán.
+        - Đảm bảo tên kỳ là duy nhất.
+        - Gọi Repository để thêm vào DB.
+        """
+        # Kiểm tra xem tên kỳ đã tồn tại chưa
+        existing_ky = self.repository.get_by_ten_ky(ky_ke_toan_domain.ten_ky)
+        if existing_ky:
+            raise ValueError(f"Kỳ kế toán '{ky_ke_toan_domain.ten_ky}' đã tồn tại.")
+
+        # Gọi Repository để thêm vào DB
+        return self.repository.add(ky_ke_toan_domain)
+
+    def lay_ky_ke_toan_theo_id(self, id: int) -> Optional[KyKeToanDomain]:
+        """
+        Lấy thông tin kỳ kế toán theo ID.
+        """
+        return self.repository.get_by_id(id)
+
+    def lay_ky_hien_hanh_cho_ngay(self, ngay: date) -> Optional[KyKeToanDomain]:
+        """
+        Tìm kỳ kế toán đang mở hoặc đã khóa mà ngày chứng từ thuộc về.
+        (Cần một method get_by_date trong repository để thực hiện điều này)
+        """
+        return self.repository.get_by_date(ngay)
+
+    def is_ky_da_khoa(self, ky_id: int) -> bool:
+        """
+        Kiểm tra xem một kỳ kế toán đã bị khóa chưa.
+        """
+        ky = self.repository.get_by_id(ky_id)
+        return ky is not None and ky.trang_thai == "Locked"
+
+    def khoa_ky(self, id: int, nguoi_thuc_hien: str = "System") -> bool:
+        """
+        Khóa sổ kế toán cho kỳ đã cho (GL-05 - Quy trình khóa sổ).
+        - Kiểm tra bút toán nháp (Draft).
+        - Cập nhật trạng thái thành 'Locked'.
+        """
+        ky = self.repository.get_by_id(id)
+        if not ky:
+            raise ValueError(f"Kỳ kế toán với ID {id} không tồn tại.")
+
+        if ky.trang_thai == "Locked":
+            raise ValueError(f"Kỳ '{ky.ten_ky}' đã bị khóa rồi.")
+
+        # 1. Kiểm tra bút toán nháp (Draft) trong khoảng thời gian của kỳ
+        draft_entries = self.journal_entry_repo.get_draft_entries_by_date_range(ky.ngay_bat_dau, ky.ngay_ket_thuc)
+
+        if draft_entries:
+            draft_so_phieu = [e.so_phieu for e in draft_entries]
+            raise ValueError(f"Không thể khóa kỳ '{ky.ten_ky}'. Vẫn còn {len(draft_entries)} bút toán nháp: {', '.join(draft_so_phieu[:5])}{'...' if len(draft_so_phieu) > 5 else ''}")
+
+        # Nếu tất cả kiểm tra đều đạt, cập nhật trạng thái
+        self.repository.update_trang_thai(id, "Locked")
+        return True
+
+    def mo_ky(self, id: int, ly_do: str, nguoi_thuc_hien: str = "System") -> bool:
+        """
+        Mở sổ kế toán cho kỳ đã khóa.
+        Yêu cầu: Phải có lý do chính đáng và chỉ áp dụng cho kỳ đang ở trạng thái 'Locked'.
+        """
+        if not ly_do or not ly_do.strip():
+            raise ValueError("Lý do mở kỳ không được để trống.")
+
+        ky = self.repository.get_by_id(id)
+        if not ky:
+            raise ValueError(f"Kỳ kế toán với ID {id} không tồn tại.")
+
+        if ky.trang_thai != "Locked":
+            raise ValueError(f"Kỳ '{ky.ten_ky}' không ở trạng thái 'Locked' nên không thể mở.")
+
+        # Cập nhật trạng thái
+        self.repository.update_trang_thai(id, "Open")
+        return True
+
+    def lay_tat_ca_ky_ke_toan(self) -> List[KyKeToanDomain]:
+        """
+        Lấy danh sách tất cả kỳ kế toán.
+        """
+        return self.repository.get_all()
+from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
+from typing import List, Optional
+
+# Domain Models
+from app.domain.models.journal_entry import JournalEntry, JournalEntryLine
+from app.domain.models.journal_entry import JournalEntry as JournalEntryDomain, JournalEntryLine
+from app.domain.models.account import TaiKhoan, LoaiTaiKhoan # Giữ lại cho mục đích type hinting nếu cần
+
+# Repositories
+from app.infrastructure.repositories.journal_entry_repository import JournalEntryRepository
+from app.infrastructure.repositories.account_repository import AccountRepository
+
+# Services
+from app.application.services.accounting_period_service import AccountingPeriodService
+
+class JournalingService:
+    """
+    Service Layer quản lý các nghiệp vụ liên quan đến Bút toán Kế toán (Journal Entry).
+    Bao gồm các kiểm tra nghiệp vụ như: tồn tại tài khoản, cân bằng Nợ/Có (Domain Entity lo), 
+    và kiểm tra trạng thái khóa sổ của kỳ kế toán (Business Logic).
+    """
+    def __init__(self, 
+                 repository: JournalEntryRepository, 
+                 account_repository: AccountRepository,
+                 accounting_period_service: AccountingPeriodService):
+        self.repository = repository
+        self.account_repository = account_repository
+        self.accounting_period_service = accounting_period_service
+
+    def _kiem_tra_khoa_so(self, ngay_ct: date):
+        """
+        Hàm tiện ích kiểm tra xem ngày chứng từ có thuộc kỳ đã khóa sổ hay không.
+        Nếu kỳ đã khóa, sẽ raise ValueError.
+        """
+        ky_ke_toan = self.accounting_period_service.lay_ky_ke_toan_theo_ngay(ngay_ct)
+        if not ky_ke_toan:
+            # Có thể cho phép tạo nếu chưa có kỳ, hoặc bắt buộc phải có kỳ
+            # Tùy theo logic nghiệp vụ. Ở đây, ta cho phép nhưng cảnh báo
+            print(f"[WARN] Ngày {ngay_ct} không thuộc bất kỳ kỳ kế toán nào. Cho phép tạo.")
+            return
+        
+        if ky_ke_toan.trang_thai == "Locked":
+            raise ValueError(f"Kỳ kế toán '{ky_ke_toan.ten_ky}' (Ngày {ngay_ct.strftime('%Y-%m-%d')}) đã bị khóa. Không thể thực hiện nghiệp vụ.")
+
+    def _kiem_tra_tai_khoan_ton_tai(self, lines: List[JournalEntryLine]):
+        """
+        Kiểm tra tất cả tài khoản trong các dòng bút toán có tồn tại không.
+        """
+        for line in lines:
+            tai_khoan = self.account_repository.get_by_id(line.so_tai_khoan)
+            if not tai_khoan:
+                raise ValueError(f"Tài khoản '{line.so_tai_khoan}' không tồn tại trong hệ thống.")
+
+    # --- CRUD Operations ---
+
+    def tao_phieu_ke_toan(self, journal_entry_domain: JournalEntryDomain) -> JournalEntryDomain:
+        """
+        Tạo mới một bút toán kế toán.
+        """
+        # 1. Kiểm tra khóa sổ
+        self._kiem_tra_khoa_so(journal_entry_domain.ngay_ct)
+        
+        # 2. Kiểm tra tài khoản tồn tại
+        self._kiem_tra_tai_khoan_ton_tai(journal_entry_domain.lines)
+
+        # 3. Kiểm tra hợp lệ Domain Entity (đã thực hiện trong __post_init__ của JournalEntry)
+
+        # 4. Thiết lập trạng thái ban đầu và lưu
+        journal_entry_domain.trang_thai = "Draft"
+        return self.repository.add(journal_entry_domain)
+
+    def lay_phieu_ke_toan(self, id: int) -> Optional[JournalEntryDomain]:
+        """
+        Lấy thông tin bút toán theo ID.
+        """
+        return self.repository.get_by_id(id)
+
+    def lay_tat_ca_phieu_ke_toan(self) -> List[JournalEntryDomain]:
+        """
+        Lấy danh sách tất cả bút toán.
+        """
+        return self.repository.get_all()
+
+    def cap_nhat_phieu_ke_toan(self, id: int, journal_entry_domain_updated: JournalEntryDomain) -> JournalEntryDomain:
+        """
+        Cập nhật bút toán kế toán hiện có.
+        """
+        journal_entry_hien_tai = self.repository.get_by_id(id)
+        if not journal_entry_hien_tai:
+            raise ValueError(f"Bút toán với ID {id} không tồn tại.")
+
+        # 1. Chỉ cho phép cập nhật nếu bút toán đang ở trạng thái Draft
+        if journal_entry_hien_tai.trang_thai != "Draft":
+            raise ValueError(f"Không thể cập nhật bút toán ID {id} vì trạng thái là '{journal_entry_hien_tai.trang_thai}'. Chỉ có thể cập nhật bút toán ở trạng thái 'Draft'.")
+
+        # 2. Kiểm tra khóa sổ (dựa trên ngày chứng từ mới/ngày hiện tại, tốt nhất nên dựa trên cả 2)
+        # Nếu ngày chứng từ thay đổi, ta kiểm tra cả ngày cũ và ngày mới
+        if journal_entry_domain_updated.ngay_ct != journal_entry_hien_tai.ngay_ct:
+             self._kiem_tra_khoa_so(journal_entry_domain_updated.ngay_ct)
+        
+        # Kiểm tra khóa sổ của ngày cũ (nếu có, để tránh việc chuyển bút toán ra khỏi kỳ đã khóa)
+        self._kiem_tra_khoa_so(journal_entry_hien_tai.ngay_ct)
+
+        # 3. Kiểm tra tài khoản tồn tại cho từng dòng mới
+        self._kiem_tra_tai_khoan_ton_tai(journal_entry_domain_updated.lines)
+
+        # 4. Kiểm tra hợp lệ Entity (sẽ được gọi trong Repostory.update)
+        
+        # 5. Cập nhật ID và trạng thái (đảm bảo vẫn là Draft)
+        journal_entry_domain_updated.id = id
+        journal_entry_domain_updated.trang_thai = "Draft"
+
+        # 6. Gọi Repository để cập nhật
+        return self.repository.update(journal_entry_domain_updated)
+
+
+    def xoa_phieu_ke_toan(self, id: int) -> bool:
+        """
+        Xóa một bút toán kế toán.
+        """
+        journal_entry = self.repository.get_by_id(id)
+        if not journal_entry:
+            return False
+
+        # 1. Chỉ cho phép xóa nếu bút toán đang ở trạng thái Draft
+        if journal_entry.trang_thai != "Draft":
+            raise ValueError(f"Không thể xóa bút toán ID {id} vì trạng thái là '{journal_entry.trang_thai}'. Chỉ có thể xóa bút toán ở trạng thái 'Draft'.")
+
+        # 2. Kiểm tra khóa sổ
+        self._kiem_tra_khoa_so(journal_entry.ngay_ct)
+
+        # 3. Gọi Repository để xóa
+        return self.repository.delete(id)
+    
+    # --- State Management Operations ---
+
+    def post_phieu_ke_toan(self, id: int) -> JournalEntryDomain:
+        """
+        Đăng sổ (Post) một bút toán kế toán (chuyển trạng thái sang 'Posted').
+        """
+        journal_entry = self.repository.get_by_id(id)
+        if not journal_entry:
+            raise ValueError(f"Bút toán với ID {id} không tồn tại.")
+            
+        # 1. Kiểm tra khóa sổ
+        self._kiem_tra_khoa_so(journal_entry.ngay_ct)
+
+        # 2. Kiểm tra trạng thái hiện tại
+        if journal_entry.trang_thai == "Posted":
+            raise ValueError(f"Bút toán ID {id} đã được đăng sổ rồi.")
+        if journal_entry.trang_thai == "Locked":
+             raise ValueError(f"Bút toán ID {id} đã bị khóa, không thể thay đổi trạng thái.")
+        
+        # 3. Cập nhật trạng thái và lưu
+        journal_entry.trang_thai = "Posted"
+        return self.repository.update_status(id, "Posted")
+
+    def unpost_phieu_ke_toan(self, id: int) -> JournalEntryDomain:
+        """
+        Hủy đăng sổ (Unpost) một bút toán kế toán (chuyển trạng thái về 'Draft').
+        """
+        journal_entry = self.repository.get_by_id(id)
+        if not journal_entry:
+            raise ValueError(f"Bút toán với ID {id} không tồn tại.")
+        
+        # 1. Kiểm tra khóa sổ
+        self._kiem_tra_khoa_so(journal_entry.ngay_ct)
+
+        # 2. Kiểm tra trạng thái hiện tại
+        if journal_entry.trang_thai == "Draft":
+            raise ValueError(f"Bút toán ID {id} đang ở trạng thái Draft, không cần hủy đăng sổ.")
+        if journal_entry.trang_thai == "Locked":
+             raise ValueError(f"Bút toán ID {id} đã bị khóa, không thể thay đổi trạng thái.")
+
+        # 3. Cập nhật trạng thái và lưu
+        journal_entry.trang_thai = "Draft"
+        return self.repository.update_status(id, "Draft")
+
+    # Lưu ý: Cần thêm các phương thức tìm kiếm nâng cao (ví dụ: theo ngày, theo tài khoản, theo trạng thái)
+    # Tùy thuộc vào yêu cầu của API.
+    def ket_chuyen_cuoi_ky(self, ky_hieu: str, ngay_ket_chuyen: date) -> List[JournalEntry]:
+        """
+        [Nghiệp vụ] Thực hiện kết chuyển cuối kỳ theo TT99/2025/TT-BTC.
+        
+        Các bước:
+        1. Kết chuyển doanh thu (TK 511, 512, 515) → Nợ 911 / Có Doanh thu
+        2. Kết chuyển chi phí (TK 632, 641, 642, 635, 811) → Nợ Chi phí / Có 911
+        3. Kết chuyển lãi/lỗ: 
+        - Nếu LÃI: Nợ 911 / Có 421
+        - Nếu LỖ: Nợ 421 / Có 911
+
+        Yêu cầu:
+        - Tất cả bút toán trong kỳ đã được Posted.
+        - Tài khoản 911 và 421 phải tồn tại.
+        """
+        # 1. Lấy tất cả bút toán đã Posted trong kỳ
+        # (Giả định bạn có phương thức get_all_posted_in_period hoặc tương đương)
+        # Ở đây ta dùng get_all() và lọc theo trạng thái Posted
+        all_entries = self.repository.get_all()
+        posted_entries = [e for e in all_entries if e.trang_thai == "Posted"]
+
+        # 2. Tính tổng phát sinh Có của doanh thu và Nợ của chi phí
+        doanh_thu_tong = Decimal(0)
+        chi_phi_tong = Decimal(0)
+
+        # Tài khoản doanh thu (theo Phụ lục II TT99)
+        tk_doanh_thu = ["511", "512", "515"]
+        # Tài khoản chi phí
+        tk_chi_phi = ["632", "641", "642", "635", "811"]
+
+        for entry in posted_entries:
+            for line in entry.lines:
+                if line.so_tai_khoan in tk_doanh_thu:
+                    doanh_thu_tong += line.co  # Doanh thu ghi Có
+                elif line.so_tai_khoan in tk_chi_phi:
+                    chi_phi_tong += line.no    # Chi phí ghi Nợ
+
+        # Làm tròn 2 chữ số thập phân
+        doanh_thu_tong = doanh_thu_tong.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        chi_phi_tong = chi_phi_tong.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        ket_chuyen_entries = []
+
+        # 3. Bút toán kết chuyển doanh thu: Nợ 911 / Có Doanh thu
+        if doanh_thu_tong > 0:
+            lines_dt = []
+            # Ghi Nợ 911
+            lines_dt.append(JournalEntryLine(so_tai_khoan="911", no=doanh_thu_tong, co=Decimal(0)))
+            # Ghi Có từng TK doanh thu (đơn giản hóa: gộp chung)
+            for tk in tk_doanh_thu:
+                # Tính tổng Có từng TK (nếu cần chi tiết)
+                pass
+            # Gộp chung: Có tổng doanh thu
+            lines_dt.append(JournalEntryLine(so_tai_khoan="511", no=Decimal(0), co=doanh_thu_tong))
+            bt_dt = JournalEntry(
+                ngay_ct=ngay_ket_chuyen,
+                so_phieu=f"KC-DOANH-THU-{ky_hieu}",
+                mo_ta=f"Kết chuyển doanh thu kỳ {ky_hieu}",
+                lines=lines_dt,
+                trang_thai="Draft"
+            )
+            bt_dt = self.tao_phieu_ke_toan(bt_dt)
+            ket_chuyen_entries.append(bt_dt)
+
+        # 4. Bút toán kết chuyển chi phí: Nợ Chi phí / Có 911
+        if chi_phi_tong > 0:
+            lines_cp = []
+            # Ghi Nợ tổng chi phí (gộp)
+            lines_cp.append(JournalEntryLine(so_tai_khoan="632", no=chi_phi_tong, co=Decimal(0)))
+            # Ghi Có 911
+            lines_cp.append(JournalEntryLine(so_tai_khoan="911", no=Decimal(0), co=chi_phi_tong))
+            bt_cp = JournalEntry(
+                ngay_ct=ngay_ket_chuyen,
+                so_phieu=f"KC-CHI-PHI-{ky_hieu}",
+                mo_ta=f"Kết chuyển chi phí kỳ {ky_hieu}",
+                lines=lines_cp,
+                trang_thai="Draft"
+            )
+            bt_cp = self.tao_phieu_ke_toan(bt_cp)
+            ket_chuyen_entries.append(bt_cp)
+
+        # 5. Tính lãi/lỗ
+        lai_lo = doanh_thu_tong - chi_phi_tong
+        lai_lo = lai_lo.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        if lai_lo != 0:
+            lines_kqkd = []
+            if lai_lo > 0:
+                # LÃI: Nợ 911 / Có 421
+                lines_kqkd.append(JournalEntryLine(so_tai_khoan="911", no=lai_lo, co=Decimal(0)))
+                lines_kqkd.append(JournalEntryLine(so_tai_khoan="421", no=Decimal(0), co=lai_lo))
+                mo_ta = f"Kết chuyển LÃI kỳ {ky_hieu}"
+            else:
+                # LỖ: Nợ 421 / Có 911
+                loss = abs(lai_lo)
+                lines_kqkd.append(JournalEntryLine(so_tai_khoan="421", no=loss, co=Decimal(0)))
+                lines_kqkd.append(JournalEntryLine(so_tai_khoan="911", no=Decimal(0), co=loss))
+                mo_ta = f"Kết chuyển LỖ kỳ {ky_hieu}"
+
+            bt_kqkd = JournalEntry(
+                ngay_ct=ngay_ket_chuyen,
+                so_phieu=f"KC-KQKD-{ky_hieu}",
+                mo_ta=mo_ta,
+                lines=lines_kqkd,
+                trang_thai="Draft"
+            )
+            bt_kqkd = self.tao_phieu_ke_toan(bt_kqkd)
+            ket_chuyen_entries.append(bt_kqkd)
+
+        # 6. Đăng sổ (Post) các bút toán kết chuyển
+        for bt in ket_chuyen_entries:
+            self.post_phieu_ke_toan(bt.id)
+
+        return ket_chuyen_entries
+# app/application/services/reporting_service.py
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import date
+from typing import List, Optional, Dict, Tuple
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+# Import Domain Models cho Reports (Pydantic DTOs)
+from app.domain.models.report import (
+    BaoCaoTinhHinhTaiChinh,
+    BaoCaoKetQuaHDKD,
+    BaoCaoLuuChuyenTienTe,
+    BaoCaoThuyetMinh,
+    TaiSanNganHan,
+    TaiSanDaiHan,
+    NoPhaiTraNganHan,
+    NoPhaiTraDaiHan,
+    VonChuSoHuu,
+    TienVaCacKhoanTgTien,
+    ChiTietTaiKhoan,
+    ThuyetMinhTaiSan,
+    ThuyetMinhNguonVon,
+    ThuyetMinhKetQua,
+    TongTaiSan,
+    TongNguonVon
+)
+
+# Import Domain Models và Enum Kế toán
+from app.domain.models.journal_entry import JournalEntry, JournalEntryLine
+from app.domain.models.account import TaiKhoan, LoaiTaiKhoan
+
+# Import Repositories
+from app.infrastructure.repositories.journal_entry_repository import JournalEntryRepository
+from app.infrastructure.repositories.account_repository import AccountRepository
+
+# Import Services khác (nếu cần)
+from app.application.services.accounting_period_service import AccountingPeriodService  # Cần cho việc xác định kỳ
+
+# Làm tròn kết quả tính toán đến 2 chữ số thập phân
+SCALE = 2
+QUANT = Decimal('0.01')
+
+class ReportingService:
+    """
+    Service chịu trách nhiệm tính toán và lập các báo cáo tài chính.
+    """
+    def __init__(self, journal_entry_repo: JournalEntryRepository, account_repo: AccountRepository, period_service: AccountingPeriodService = None):
+        self.journal_entry_repo = journal_entry_repo
+        self.account_repo = account_repo
+        self.period_service = period_service  # Dùng để xác định kỳ kế toán (nếu cần)
+
+    def _get_opening_balance(self, so_tai_khoan: str, ngay_bat_dau: date) -> Decimal:
+        """
+        [PLACEHOLDER] Lấy số dư đầu kỳ của một tài khoản tại ngày bắt đầu.
+        Trả về Decimal đã được làm tròn.
+        """
+        # Giả lập số dư đầu kỳ cho mục đích demo (ví dụ: TK 111 có 100,000,000)
+        if so_tai_khoan == '111':
+            return Decimal("100000000").quantize(QUANT, rounding=ROUND_HALF_UP)
+        return Decimal(0).quantize(QUANT, rounding=ROUND_HALF_UP)
+
+    def _tinh_so_du_tai_khoan_theo_ngay(self, so_tai_khoan: str, ngay_bat_dau: date, ngay_ket_thuc: date) -> Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
+        """
+        Tính toán số dư (SDĐK, PS Nợ, PS Có, SDCK Nợ, SDCK Có) cho một tài khoản trong một khoảng thời gian.
+        Trả về: (SDĐK, PS Nợ, PS Có, SDCK Nợ, SDCK Có)
+        """
+        sd_dau_ky = self._get_opening_balance(so_tai_khoan, ngay_bat_dau)
+
+        # Lấy tất cả bút toán đã Posted trong kỳ (repository cung cấp)
+        journal_entries = self.journal_entry_repo.get_all_posted_in_range(ngay_bat_dau, ngay_ket_thuc)
+
+        phat_sinh_no = Decimal(0)
+        phat_sinh_co = Decimal(0)
+        for entry in journal_entries:
+            for line in entry.lines:
+                if line.so_tai_khoan == so_tai_khoan:
+                    phat_sinh_no += (line.no or Decimal(0))
+                    phat_sinh_co += (line.co or Decimal(0))
+
+        phat_sinh_no = phat_sinh_no.quantize(QUANT, rounding=ROUND_HALF_UP)
+        phat_sinh_co = phat_sinh_co.quantize(QUANT, rounding=ROUND_HALF_UP)
+
+        tai_khoan = self.account_repo.get_by_id(so_tai_khoan)
+        if not tai_khoan:
+            return sd_dau_ky, phat_sinh_no, phat_sinh_co, Decimal(0).quantize(QUANT), Decimal(0).quantize(QUANT)
+
+        loai_tai_khoan = tai_khoan.loai_tai_khoan
+
+        sd_cuoi_ky_no = Decimal(0)
+        sd_cuoi_ky_co = Decimal(0)
+
+        # Loại I: Tài sản/Chi phí/Giá vốn -> Nợ tăng, Có giảm
+        if loai_tai_khoan in [LoaiTaiKhoan.TAI_SAN, LoaiTaiKhoan.CHI_PHI, LoaiTaiKhoan.GIA_VON]:
+            tong_no = sd_dau_ky + phat_sinh_no
+            tong_co = phat_sinh_co
+            if tong_no >= tong_co:
+                sd_cuoi_ky_no = tong_no - tong_co
+            else:
+                sd_cuoi_ky_co = tong_co - tong_no
+
+        # Loại II: Nguồn vốn/Doanh thu/Thu nhập khác -> Có tăng, Nợ giảm
+        elif loai_tai_khoan in [LoaiTaiKhoan.NO_PHAI_TRA, LoaiTaiKhoan.VON_CHU_SO_HUU, LoaiTaiKhoan.DOANH_THU, LoaiTaiKhoan.THU_NHAP_KHAC]:
+            tong_no = phat_sinh_no
+            tong_co = sd_dau_ky + phat_sinh_co
+            if tong_co >= tong_no:
+                sd_cuoi_ky_co = tong_co - tong_no
+            else:
+                sd_cuoi_ky_no = tong_no - tong_co
+
+        sd_cuoi_ky_no = sd_cuoi_ky_no.quantize(QUANT, rounding=ROUND_HALF_UP)
+        sd_cuoi_ky_co = sd_cuoi_ky_co.quantize(QUANT, rounding=ROUND_HALF_UP)
+
+        return sd_dau_ky, phat_sinh_no, phat_sinh_co, sd_cuoi_ky_no, sd_cuoi_ky_co
+
+    # ----------------------------
+    # Trial Balance
+    # ----------------------------
+    def lay_bang_can_doi_so_phat_sinh(self, ky_hieu: str, ngay_lap: date, ngay_bat_dau: date, ngay_ket_thuc: date) -> List[ChiTietTaiKhoan]:
+        all_accounts = self.account_repo.get_all()
+        result_details: List[ChiTietTaiKhoan] = []
+
+        for tai_khoan in all_accounts:
+            sd_dau_ky, ps_no, ps_co, sd_cuoi_ky_no, sd_cuoi_ky_co = self._tinh_so_du_tai_khoan_theo_ngay(
+                tai_khoan.so_tai_khoan, ngay_bat_dau, ngay_ket_thuc
+            )
+
+            sd_dk_no = Decimal(0)
+            sd_dk_co = Decimal(0)
+            if tai_khoan.loai_tai_khoan in [LoaiTaiKhoan.TAI_SAN, LoaiTaiKhoan.CHI_PHI, LoaiTaiKhoan.GIA_VON]:
+                sd_dk_no = sd_dau_ky
+            else:
+                sd_dk_co = sd_dau_ky
+
+            if (sd_dk_no == 0 and sd_dk_co == 0 and ps_no == 0 and ps_co == 0):
+                continue
+
+            result_details.append(
+                ChiTietTaiKhoan(
+                    so_tai_khoan=tai_khoan.so_tai_khoan,
+                    ten_tai_khoan=tai_khoan.ten_tai_khoan,
+                    so_du_dau_ky_no=sd_dk_no,
+                    so_du_dau_ky_co=sd_dk_co,
+                    phat_sinh_no=ps_no,
+                    phat_sinh_co=ps_co,
+                    so_du_cuoi_ky_no=sd_cuoi_ky_no,
+                    so_du_cuoi_ky_co=sd_cuoi_ky_co,
+                )
+            )
+        return result_details
+
+    # ----------------------------
+    # Balance Sheet (B01-DN)
+    # ----------------------------
+    def lay_bao_cao_tinh_hinh_tai_chinh(self, ky_hieu: str, ngay_lap: date, ngay_ket_thuc: date) -> BaoCaoTinhHinhTaiChinh:
+        all_accounts = self.account_repo.get_all()
+        account_balances: Dict[str, Tuple[Decimal, Decimal]] = {}
+        ngay_dau_nam = date(ngay_ket_thuc.year, 1, 1)
+
+        for tai_khoan in all_accounts:
+            _, _, _, sd_cuoi_ky_no, sd_cuoi_ky_co = self._tinh_so_du_tai_khoan_theo_ngay(
+                tai_khoan.so_tai_khoan, ngay_dau_nam, ngay_ket_thuc
+            )
+            account_balances[tai_khoan.so_tai_khoan] = (sd_cuoi_ky_no, sd_cuoi_ky_co)
+
+        def get_balance(so_tai_khoan_tong_hop: str) -> Decimal:
+            tong_sd_no = Decimal(0)
+            tong_sd_co = Decimal(0)
+            for so_tai_khoan, (sd_no, sd_co) in account_balances.items():
+                if so_tai_khoan.startswith(so_tai_khoan_tong_hop):
+                    tong_sd_no += sd_no
+                    tong_sd_co += sd_co
+
+            tai_khoan_goc = self.account_repo.get_by_id(so_tai_khoan_tong_hop)
+            if not tai_khoan_goc:
+                return Decimal(0).quantize(QUANT)
+
+            loai_tk = tai_khoan_goc.loai_tai_khoan
+            if loai_tk in [LoaiTaiKhoan.TAI_SAN]:
+                net_balance = tong_sd_no - tong_sd_co
+                return abs(net_balance).quantize(QUANT, rounding=ROUND_HALF_UP)
+            elif loai_tk in [LoaiTaiKhoan.NO_PHAI_TRA, LoaiTaiKhoan.VON_CHU_SO_HUU]:
+                net_balance = tong_sd_co - tong_sd_no
+                return abs(net_balance).quantize(QUANT, rounding=ROUND_HALF_UP)
+            return Decimal(0).quantize(QUANT)
+
+        # Tien va cac khoan tuong duong tien
+        tien_va = TienVaCacKhoanTgTien(
+            tien_mat=get_balance('111'),
+            tien_gui_ngan_hang=get_balance('112'),
+            tien_dang_chuyen=get_balance('113'),
+        )
+        tien_va.tong_cong = (tien_va.tien_mat + tien_va.tien_gui_ngan_hang + tien_va.tien_dang_chuyen).quantize(QUANT)
+
+        # Tai san ngan han
+        cac_khoan_phai_thu_ngan_han = (get_balance('131') + get_balance('138')).quantize(QUANT)
+        hang_ton_kho = (get_balance('152') + get_balance('153') + get_balance('155') + get_balance('156')).quantize(QUANT)
+        tai_san_ngan_han_khac = get_balance('150')
+        tong_tai_san_ngan_han = (tien_va.tong_cong + cac_khoan_phai_thu_ngan_han + hang_ton_kho + tai_san_ngan_han_khac).quantize(QUANT)
+
+        tai_san_ngan_han = TaiSanNganHan(
+            tien_va_cac_khoan_tuong_duong_tien=tien_va,
+            cac_khoan_dau_tu_tai_chinh_ngan_han=get_balance('121'),
+            cac_khoan_phai_thu_ngan_han=cac_khoan_phai_thu_ngan_han,
+            hang_ton_kho=hang_ton_kho,
+            tai_san_ngan_han_khac=tai_san_ngan_han_khac,
+            tong_tai_san_ngan_han=tong_tai_san_ngan_han
+        )
+
+        # Tai san dai han
+        tai_san_co_dinh_huu_hinh = (get_balance('211') - get_balance('214')).quantize(QUANT)
+        tai_san_co_dinh_vo_hinh = get_balance('221')
+        bat_dong_san_dau_tu = get_balance('217')
+        cac_khoan_dau_tu_tai_chinh_dai_han = get_balance('221')  # nếu khác map lại
+        tai_san_dai_han_khac = (get_balance('241') + get_balance('242')).quantize(QUANT)
+        tong_tai_san_dai_han = (tai_san_co_dinh_huu_hinh + tai_san_co_dinh_vo_hinh + bat_dong_san_dau_tu + cac_khoan_dau_tu_tai_chinh_dai_han + tai_san_dai_han_khac).quantize(QUANT)
+
+        tai_san_dai_han = TaiSanDaiHan(
+            tai_san_co_dinh_huu_hinh=tai_san_co_dinh_huu_hinh,
+            tai_san_co_dinh_vo_hinh=tai_san_co_dinh_vo_hinh,
+            bat_dong_san_dau_tu=bat_dong_san_dau_tu,
+            cac_khoan_dau_tu_tai_chinh_dai_han=cac_khoan_dau_tu_tai_chinh_dai_han,
+            tai_san_dai_han_khac=tai_san_dai_han_khac,
+            tong_tai_san_dai_han=tong_tai_san_dai_han
+        )
+
+        tong_tai_san_total = (tong_tai_san_ngan_han + tong_tai_san_dai_han).quantize(QUANT)
+
+        tong_tai_san = TongTaiSan(
+            tai_san_ngan_han=tai_san_ngan_han,
+            tai_san_dai_han=tai_san_dai_han,
+            tong_cong_tai_san=tong_tai_san_total
+        )
+
+        # Nguon von
+        phai_tra_ngan_han = (
+            get_balance('331') +
+            get_balance('333') +  
+            get_balance('334') + 
+            get_balance('338') + 
+            get_balance('341')).quantize(QUANT)
+        no_ngan_han_obj = NoPhaiTraNganHan(
+            vay_va_no_thue_tai_chinh_ngan_han=get_balance('341'),
+            phai_tra_ngan_han_nguoi_ban=get_balance('331'),
+            thue_va_cac_khoan_phai_nop_nha_nuoc=get_balance('333'),
+            phai_tra_ngan_han_khac=(get_balance('334') + get_balance('338')).quantize(QUANT),
+            tong_no_ngan_han=phai_tra_ngan_han
+        )
+
+        no_dai_han_obj = NoPhaiTraDaiHan(
+            vay_va_no_thue_tai_chinh_dai_han=get_balance('341'),
+            du_phong_phai_tra_dai_han=Decimal(0),
+            tong_no_dai_han=get_balance('341')
+        )
+
+        tong_no_phai_tra = (phai_tra_ngan_han + get_balance('341')).quantize(QUANT)
+
+        von_obj = VonChuSoHuu(
+            von_dau_tu_cua_chu_so_huu=get_balance('411'),
+            thang_du_von_co_phan=get_balance('412'),
+            loi_nhuan_sau_thue_chua_phan_phoi=get_balance('421'),
+            tong_von_chu_so_huu=(get_balance('411') + get_balance('421')).quantize(QUANT)
+        )
+
+        tong_nguon_von_total = (tong_no_phai_tra + von_obj.tong_von_chu_so_huu).quantize(QUANT)
+
+        tong_nguon_von = TongNguonVon(
+            no_phai_tra_ngan_han=no_ngan_han_obj,
+            no_phai_tra_dai_han=no_dai_han_obj,
+            von_chu_so_huu=von_obj,
+            tong_cong_nguon_von=tong_nguon_von_total
+        )
+
+        # Kiểm tra cân bằng
+        if (tong_tai_san.tong_cong_tai_san - tong_nguon_von.tong_cong_nguon_von).quantize(QUANT, rounding=ROUND_HALF_UP) != Decimal(0):
+            print(f"[CẢNH BÁO] Bảng Cân Đối không cân bằng! TS: {tong_tai_san.tong_cong_tai_san}, NV: {tong_nguon_von.tong_cong_nguon_von}")
+
+        return BaoCaoTinhHinhTaiChinh(
+            ngay_lap=ngay_lap,
+            ky_hieu=ky_hieu,
+            tai_san=tong_tai_san,
+            nguon_von=tong_nguon_von
+        )
+
+    # ----------------------------
+    # Income statement (B02)
+    # ----------------------------
+    def lay_bao_cao_ket_qua_hdkd(self, ky_hieu: str, ngay_lap: date, ngay_bat_dau: date, ngay_ket_thuc: date) -> BaoCaoKetQuaHDKD:
+        def get_ps(so_tai_khoan_goc: str, loai_ps: str) -> Decimal:
+            tong = Decimal(0)
+            all_accounts = self.account_repo.get_all()
+            for tai_khoan in all_accounts:
+                if tai_khoan.so_tai_khoan.startswith(so_tai_khoan_goc):
+                    _, ps_no, ps_co, _, _ = self._tinh_so_du_tai_khoan_theo_ngay(
+                        tai_khoan.so_tai_khoan, ngay_bat_dau, ngay_ket_thuc
+                    )
+                    if loai_ps == 'NO':
+                        tong += ps_no
+                    elif loai_ps == 'CO':
+                        tong += ps_co
+            return tong.quantize(QUANT, rounding=ROUND_HALF_UP)
+
+        doanh_thu_ban_hang = get_ps('511', 'CO')
+        giam_tru_doanh_thu = get_ps('521', 'NO')
+        doanh_thu_thuan = (doanh_thu_ban_hang - giam_tru_doanh_thu).quantize(QUANT)
+        gia_von_hang_ban = get_ps('632', 'NO')
+        loi_nhuan_gop = (doanh_thu_thuan - gia_von_hang_ban).quantize(QUANT)
+        doanh_thu_hoat_dong_tai_chinh = get_ps('515', 'CO')
+        chi_phi_tai_chinh = get_ps('635', 'NO')
+        chi_phi_ban_hang = get_ps('641', 'NO')
+        chi_phi_quan_ly_doanh_nghiep = get_ps('642', 'NO')
+        loi_nhuan_thuan_tu_hdkd = (loi_nhuan_gop + doanh_thu_hoat_dong_tai_chinh - chi_phi_tai_chinh - chi_phi_ban_hang - chi_phi_quan_ly_doanh_nghiep).quantize(QUANT)
+        thu_nhap_khac = get_ps('711', 'CO')
+        chi_phi_khac = get_ps('811', 'NO')
+        loi_nhuan_khac = (thu_nhap_khac - chi_phi_khac).quantize(QUANT)
+        tong_loi_nhuan_truoc_thue = (loi_nhuan_thuan_tu_hdkd + loi_nhuan_khac).quantize(QUANT)
+        chi_phi_thue_thu_nhap_doanh_nghiep_hien_hanh = get_ps('821', 'NO')
+        loi_nhuan_sau_thue = (tong_loi_nhuan_truoc_thue - chi_phi_thue_thu_nhap_doanh_nghiep_hien_hanh).quantize(QUANT)
+
+        return BaoCaoKetQuaHDKD(
+            ngay_lap=ngay_lap,
+            ky_hieu=ky_hieu,
+            doanh_thu_ban_hang=doanh_thu_ban_hang,
+            cac_khoan_giam_tru_doanh_thu=giam_tru_doanh_thu,
+            doanh_thu_thuan=doanh_thu_thuan,
+            gia_von_hang_ban=gia_von_hang_ban,
+            loi_nhuan_gop=loi_nhuan_gop,
+            doanh_thu_hoat_dong_tai_chinh=doanh_thu_hoat_dong_tai_chinh,
+            chi_phi_tai_chinh=chi_phi_tai_chinh,
+            chi_phi_ban_hang=chi_phi_ban_hang,
+            chi_phi_quan_ly_doanh_nghiep=chi_phi_quan_ly_doanh_nghiep,
+            loi_nhuan_thuan_tu_hdkd=loi_nhuan_thuan_tu_hdkd,
+            thu_nhap_khac=thu_nhap_khac,
+            chi_phi_khac=chi_phi_khac,
+            loi_nhuan_khac=loi_nhuan_khac,
+            tong_loi_nhuan_truoc_thue=tong_loi_nhuan_truoc_thue,
+            chi_phi_thue_thu_nhap_doanh_nghiep_hien_hanh=chi_phi_thue_thu_nhap_doanh_nghiep_hien_hanh,
+            chi_phi_thue_thu_nhap_doanh_nghiep_hoan_lai=Decimal(0),
+            loi_nhuan_sau_thue=loi_nhuan_sau_thue
+        )
+
+    # ----------------------------
+    # Cash flow (placeholder)
+    # ----------------------------
+    def lay_bao_cao_luu_chuyen_tien_te(self, ky_hieu: str, ngay_lap: date, ngay_bat_dau: date, ngay_ket_thuc: date) -> BaoCaoLuuChuyenTienTe:
+        luu_chuyen_tien_te_hdkd = {
+            "loi_nhuan_truoc_thue": Decimal(0),
+            "khau_hao_tscd": Decimal(0),
+            "lai_lo_hoat_dong_dau_tu": Decimal(0),
+            "tien_thu_tu_ban_hang_va_cung_cap_dv": Decimal(0),
+            "tien_chi_tra_cho_nha_cung_cap_va_nhan_vien": Decimal(0),
+            "luu_chuyen_thuan_tu_hdkd": Decimal(0),
+        }
+        return BaoCaoLuuChuyenTienTe(
+            ngay_lap=ngay_lap,
+            ky_hieu=ky_hieu,
+            luu_chuyen_tien_te_hdkd=luu_chuyen_tien_te_hdkd,
+            luu_chuyen_tien_te_hddt={"luu_chuyen_thuan_tu_hddt": Decimal(0)},
+            luu_chuyen_tien_te_hdtc={"luu_chuyen_thuan_tu_hdtc": Decimal(0)},
+            luu_chuyen_tien_thuan_trong_ky=Decimal(0),
+            tien_va_tuong_duong_tien_dau_ky=self._get_opening_balance('111', ngay_bat_dau) + self._get_opening_balance('112', ngay_bat_dau),
+            tien_va_tuong_duong_tien_cuoi_ky=Decimal(0)
+        )
+
+    # ----------------------------
+    # Notes (placeholder)
+    # ----------------------------
+    def lay_bao_cao_thuyet_minh(self, ky_hieu: str, ngay_lap: date, ngay_bat_dau: date, ngay_ket_thuc: date) -> BaoCaoThuyetMinh:
+        bang_can_doi = self.lay_bang_can_doi_so_phat_sinh(ky_hieu, ngay_lap, ngay_bat_dau, ngay_ket_thuc)
+
+        chi_tiet_131 = [d for d in bang_can_doi if d.so_tai_khoan.startswith('131')]
+        thuyet_minh_tai_san = ThuyetMinhTaiSan(
+            tong_cong_thuyet_minh=sum([d.so_du_cuoi_ky_no + d.so_du_cuoi_ky_co for d in chi_tiet_131]),
+            chi_tiet_tai_khoan=chi_tiet_131,
+            ghi_chu_quan_trong="Chi tiết Tài sản"
+        )
+
+        chi_tiet_331 = [d for d in bang_can_doi if d.so_tai_khoan.startswith('331')]
+        thuyet_minh_nguon_von = ThuyetMinhNguonVon(
+            tong_cong_thuyet_minh=sum([d.so_du_cuoi_ky_no + d.so_du_cuoi_ky_co for d in chi_tiet_331]),
+            chi_tiet_tai_khoan=chi_tiet_331,
+            ghi_chu_quan_trong="Chi tiết Nguồn vốn"
+        )
+
+        chi_tiet_doanh_thu = [d for d in bang_can_doi if d.so_tai_khoan.startswith('511')]
+        thuyet_minh_ket_qua = ThuyetMinhKetQua(
+            tong_doanh_thu=sum([d.phat_sinh_co for d in chi_tiet_doanh_thu]),
+            tong_chi_phi=Decimal(0),
+            chi_tiet_tai_khoan=chi_tiet_doanh_thu,
+            ghi_chu_quan_trong="Chi tiết Doanh thu"
+        )
+
+        return BaoCaoThuyetMinh(
+            ngay_lap=ngay_lap,
+            ky_hieu=ky_hieu,
+            dac_diem_hoat_dong_cua_doanh_nghiep="Hoạt động thương mại/dịch vụ",
+            ky_ke_toan_va_don_vi_tien_te=f"Kỳ: {ky_hieu}, Tiền tệ: VND",
+            chuan_muc_ke_toan_ap_dung="VAS và TT99/2025/TT-BTC",
+            thuyet_minh_tai_san=thuyet_minh_tai_san,
+            thuyet_minh_nguon_von=thuyet_minh_nguon_von,
+            thuyet_minh_ket_qua_hoat_dong_kinh_doanh=thuyet_minh_ket_qua,
+            thong_tin_giao_dich_voi_cac_ben_lien_quan="Không có",
+            cac_su_kien_sau_ngay_ket_thuc_ky_ke_toan="Không có"
+        )
+from typing import List, Optional
+from app.domain.models.account import TaiKhoan as TaiKhoanDomain
+from app.infrastructure.repositories.account_repository import AccountRepository
+
+class TaiKhoanService:
+    """
+    [Nghiệp vụ] Service quản lý Sơ đồ tài khoản (Chart of Accounts).
+    Chịu trách nhiệm cho việc tạo, truy vấn, và duy trì tính toàn vẹn cấp bậc của tài khoản.
+    """
+    def __init__(self, repository: AccountRepository):
+        self.repository = repository
+
+    def tao_tai_khoan(self, tai_khoan_domain: TaiKhoanDomain) -> TaiKhoanDomain:
+        """
+        [Nghiệp vụ] Tạo mới một tài khoản.
+        - Kiểm tra hợp lệ Domain (trong Entity).
+        - [Ràng buộc cấp bậc] Kiểm tra tài khoản cha có tồn tại không (nếu là tài khoản cấp con).
+        - Gọi Repository để lưu vào DB.
+        """
+        # Nếu là tài khoản cấp con, kiểm tra tài khoản cha có tồn tại
+        if tai_khoan_domain.cap_tai_khoan > 1 and tai_khoan_domain.so_tai_khoan_cha:
+            cha = self.repository.get_by_id(tai_khoan_domain.so_tai_khoan_cha)
+            if not cha:
+                raise ValueError(f"Tài khoản cha '{tai_khoan_domain.so_tai_khoan_cha}' không tồn tại.")
+        # [Ràng buộc Tồn tại] Kiểm tra tài khoản không được trùng số
+        if self.repository.get_by_id(tai_khoan_domain.so_tai_khoan):
+             raise ValueError(f"Số tài khoản '{tai_khoan_domain.so_tai_khoan}' đã tồn tại.")
+
+        # Gọi Repository để thêm vào DB
+        return self.repository.add(tai_khoan_domain)
+
+    def lay_tai_khoan_theo_so(self, so_tai_khoan: str) -> Optional[TaiKhoanDomain]:
+        """
+        Lấy thông tin tài khoản theo số tài khoản.
+        """
+        return self.repository.get_by_id(so_tai_khoan)
+
+    def lay_tat_ca_tai_khoan(self) -> List[TaiKhoanDomain]:
+        """
+        Lấy danh sách tất cả tài khoản trong sơ đồ.
+        """
+        return self.repository.get_all()

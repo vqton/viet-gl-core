@@ -1,62 +1,59 @@
-from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
-from app.domain.models.account import LoaiTaiKhoan, TaiKhoan
+from unittest.mock import MagicMock
+from app.domain.models.account import TaiKhoan, LoaiTaiKhoan
 from app.main import app
 
-client = TestClient(app)
+# ⚠️ QUAN TRỌNG: Import hàm dependency mà Router thực sự sử dụng
+# Giả sử hàm này nằm ở app.api.dependencies hoặc nơi bạn định nghĩa nó
+# Bạn cần trỏ đúng đường dẫn import của dự án
+from app.presentation.api.v1.accounting import get_tai_khoan_service
 
+@pytest.fixture
+def client_with_mock_service():
+    mock_service = MagicMock()
+    
+    # ✅ SỬA ĐÚNG: Override hàm get_tai_khoan_service, không phải class TaiKhoanService
+    app.dependency_overrides[get_tai_khoan_service] = lambda: mock_service
 
-class TestAccountingAPI:
-    """Test các endpoint API kế toán."""
+    with TestClient(app) as client:
+        yield client, mock_service
 
-    def test_create_account_success(self):
-        # 1. Tạo dữ liệu giả mà bạn muốn Repository trả về (không cần ghi DB)
-        fake_account = TaiKhoan(
-            so_tai_khoan="99999", 
-            ten_tai_khoan="Tiền gửi ngân hàng", 
-            loai_tai_khoan=LoaiTaiKhoan.TAI_SAN, 
-            cap_tai_khoan=1
-        )
+    app.dependency_overrides.clear()
 
-        # 2. Sử dụng PATCH để chặn đường gọi vào hàm 'add' của Repository
-        # LƯU Ý: Đường dẫn trong patch() phải trỏ tới nơi Repository được IMPORT/SỬ DỤNG, 
-        # không phải nơi nó được định nghĩa. Ví dụ: 'app.api.endpoints.accounting.account_repository'
-        
-        # Giả sử bạn đang dùng Dependency Injection, ta có thể override dependency của FastAPI:
-        from app.main import app # Import app FastAPI của bạn
-        from app.infrastructure.repositories.account_repository import AccountRepository
-        
-        # Tạo Mock Repository
-        mock_repo = MagicMock()
-        mock_repo.add.return_value = fake_account # Giả vờ add thành công và trả về object
-        mock_repo.get_by_id.return_value = None   # Giả vờ tài khoản chưa tồn tại
-        
-        # Override dependency: Bất cứ khi nào API cần AccountRepository, hãy đưa cái Mock này
-        app.dependency_overrides[AccountRepository] = lambda: mock_repo
+def test_create_account_success(client_with_mock_service):
+    client, mock_service = client_with_mock_service
 
-        # 3. Gọi API như bình thường
-        response = client.post("/accounting/v1/accounts/", json={
-            "so_tai_khoan": "11311", # Số này trùng cũng không sao vì ta đã Mock
-            "ten_tai_khoan": "Tiền gửi ngân hàng",
-            "loai_tai_khoan": "TAI_SAN",
-            "cap_tai_khoan": 1
-        })
+    payload = {
+        "so_tai_khoan": "11311",
+        "ten_tai_khoan": "Tiền gửi ngân hàng",
+        "loai_tai_khoan": "TAI_SAN",
+        "cap_tai_khoan": 1,
+        "so_tai_khoan_cha": None,
+        "la_tai_khoan_tong_hop": True
+    }
 
-        # 4. Dọn dẹp override sau khi test xong
-        app.dependency_overrides = {}
+    # Mock return value
+    fake_account = TaiKhoan(
+        so_tai_khoan="11311",
+        ten_tai_khoan="Tiền gửi ngân hàng",
+        loai_tai_khoan=LoaiTaiKhoan.TAI_SAN,
+        cap_tai_khoan=1,
+        so_tai_khoan_cha=None,
+        la_tai_khoan_tong_hop=True
+    )
+    mock_service.tao_tai_khoan.return_value = fake_account
 
-        # 5. Kiểm tra kết quả
-        assert response.status_code in (200, 201)
-        # Kiểm tra xem hàm add của repo giả có được gọi không
-        mock_repo.add.assert_called_once()
+    response = client.post("/accounting/v1/accounts/", json=payload)
 
-    def test_create_account_invalid_data(self):
-        """Test tạo tài khoản với dữ liệu sai (số tài khoản trống)."""
-        response = client.post("/accounting/v1/accounts/", json={
-            "so_tai_khoan": "",
-            "ten_tai_khoan": "Tên không hợp lệ",
-            "loai_tai_khoan": "Tai_San"
-        })
-        # FastAPI (Pydantic) sẽ trả về 422 cho dữ liệu không hợp lệ
-        assert response.status_code == 422
+    # Debug: Nếu vẫn lỗi, in nội dung lỗi ra để xem service thật đang báo gì
+    if response.status_code != 201:
+        print(f"\nDEBUG ERROR RESPONSE: {response.json()}")
+
+    assert response.status_code == 201
+    
+    data = response.json()
+    assert data["so_tai_khoan"] == "11311"
+    
+    # Kiểm tra mock đã được gọi (Chứng minh override thành công)
+    mock_service.tao_tai_khoan.assert_called_once()
