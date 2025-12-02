@@ -6,9 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.models.journal_entry import JournalEntry as JournalEntryDomain
-from app.domain.models.journal_entry import (
-    JournalEntryLine as JournalEntryLineDomain,
-)
+from app.domain.models.journal_entry import JournalEntryLine as JournalEntryLineDomain
 from app.infrastructure.models.sql_journal_entry import (
     SQLJournalEntry,
     SQLJournalEntryLine,
