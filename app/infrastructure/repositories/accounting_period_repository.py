@@ -1,9 +1,12 @@
 # File: app/infrastructure/repositories/accounting_period_repository.py
 
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
+
 from app.domain.models.accounting_period import KyKeToan as KyKeToanDomain
 from app.infrastructure.models.sql_accounting_period import SQLAccountingPeriod
-from typing import List, Optional
+
 
 class AccountingPeriodRepository:
     def __init__(self, db_session: Session):
@@ -18,7 +21,7 @@ class AccountingPeriodRepository:
             ngay_bat_dau=ky_ke_toan_domain.ngay_bat_dau,
             ngay_ket_thuc=ky_ke_toan_domain.ngay_ket_thuc,
             trang_thai=ky_ke_toan_domain.trang_thai,
-            ghi_chu=ky_ke_toan_domain.ghi_chu
+            ghi_chu=ky_ke_toan_domain.ghi_chu,
         )
         self.db_session.add(sql_ky)
         self.db_session.commit()
@@ -29,14 +32,18 @@ class AccountingPeriodRepository:
             ngay_bat_dau=sql_ky.ngay_bat_dau,
             ngay_ket_thuc=sql_ky.ngay_ket_thuc,
             trang_thai=sql_ky.trang_thai,
-            ghi_chu=sql_ky.ghi_chu
+            ghi_chu=sql_ky.ghi_chu,
         )
 
     def get_by_id(self, id: int) -> Optional[KyKeToanDomain]:
         """
         Lấy thông tin kỳ kế toán theo ID.
         """
-        sql_ky = self.db_session.query(SQLAccountingPeriod).filter(SQLAccountingPeriod.id == id).first()
+        sql_ky = (
+            self.db_session.query(SQLAccountingPeriod)
+            .filter(SQLAccountingPeriod.id == id)
+            .first()
+        )
         if not sql_ky:
             return None
         return KyKeToanDomain(
@@ -45,14 +52,18 @@ class AccountingPeriodRepository:
             ngay_bat_dau=sql_ky.ngay_bat_dau,
             ngay_ket_thuc=sql_ky.ngay_ket_thuc,
             trang_thai=sql_ky.trang_thai,
-            ghi_chu=sql_ky.ghi_chu
+            ghi_chu=sql_ky.ghi_chu,
         )
 
     def get_by_ten_ky(self, ten_ky: str) -> Optional[KyKeToanDomain]:
         """
         Lấy thông tin kỳ kế toán theo tên kỳ.
         """
-        sql_ky = self.db_session.query(SQLAccountingPeriod).filter(SQLAccountingPeriod.ten_ky == ten_ky).first()
+        sql_ky = (
+            self.db_session.query(SQLAccountingPeriod)
+            .filter(SQLAccountingPeriod.ten_ky == ten_ky)
+            .first()
+        )
         if not sql_ky:
             return None
         return KyKeToanDomain(
@@ -61,14 +72,20 @@ class AccountingPeriodRepository:
             ngay_bat_dau=sql_ky.ngay_bat_dau,
             ngay_ket_thuc=sql_ky.ngay_ket_thuc,
             trang_thai=sql_ky.trang_thai,
-            ghi_chu=sql_ky.ghi_chu
+            ghi_chu=sql_ky.ghi_chu,
         )
 
-    def update_trang_thai(self, id: int, trang_thai_moi: str) -> Optional[KyKeToanDomain]:
+    def update_trang_thai(
+        self, id: int, trang_thai_moi: str
+    ) -> Optional[KyKeToanDomain]:
         """
         Cập nhật trạng thái của kỳ kế toán.
         """
-        sql_ky = self.db_session.query(SQLAccountingPeriod).filter(SQLAccountingPeriod.id == id).first()
+        sql_ky = (
+            self.db_session.query(SQLAccountingPeriod)
+            .filter(SQLAccountingPeriod.id == id)
+            .first()
+        )
         if not sql_ky:
             return None
         sql_ky.trang_thai = trang_thai_moi
@@ -80,7 +97,7 @@ class AccountingPeriodRepository:
             ngay_bat_dau=sql_ky.ngay_bat_dau,
             ngay_ket_thuc=sql_ky.ngay_ket_thuc,
             trang_thai=sql_ky.trang_thai,
-            ghi_chu=sql_ky.ghi_chu
+            ghi_chu=sql_ky.ghi_chu,
         )
 
     def get_all(self) -> List[KyKeToanDomain]:
@@ -95,7 +112,7 @@ class AccountingPeriodRepository:
                 ngay_bat_dau=ky.ngay_bat_dau,
                 ngay_ket_thuc=ky.ngay_ket_thuc,
                 trang_thai=ky.trang_thai,
-                ghi_chu=ky.ghi_chu
+                ghi_chu=ky.ghi_chu,
             )
             for ky in sql_kys
         ]

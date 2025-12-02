@@ -2,17 +2,21 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
+
 @dataclass
 class KyKeToan:
     """
     Entity đại diện cho một kỳ kế toán (Accounting Period).
     Chứa các thuộc tính cơ bản và quy tắc hợp lệ của một kỳ kế toán.
     """
+
     id: Optional[int] = None
-    ten_ky: str = "" # Tên định danh kỳ (Ví dụ: "Q1-2025", "Năm 2025")
-    ngay_bat_dau: date = date.today() # Ngày bắt đầu của kỳ kế toán
-    ngay_ket_thuc: date = date.today() # Ngày kết thúc của kỳ kế toán
-    trang_thai: str = "Open" # Trạng thái của kỳ: "Open" (Mở), "Locked" (Đã khóa)
+    ten_ky: str = ""  # Tên định danh kỳ (Ví dụ: "Q1-2025", "Năm 2025")
+    ngay_bat_dau: date = date.today()  # Ngày bắt đầu của kỳ kế toán
+    ngay_ket_thuc: date = date.today()  # Ngày kết thúc của kỳ kế toán
+    trang_thai: str = (
+        "Open"  # Trạng thái của kỳ: "Open" (Mở), "Locked" (Đã khóa)
+    )
     ghi_chu: str = ""
 
     def kiem_tra_hop_le(self):

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+
 from app.presentation.api.v1.accounting import router as accounting_router
 
 # Khởi tạo ứng dụng FastAPI với metadata tuân thủ TT99
@@ -14,18 +15,14 @@ app = FastAPI(
     - Khóa sổ cuối kỳ
     """,
     version="0.1.0",
-    contact={
-        "name": "Bộ phận Kế toán",
-        "email": "accounting@example.com"
-    },
-    license_info={
-        "name": "MIT License"
-    }
+    contact={"name": "Bộ phận Kế toán", "email": "accounting@example.com"},
+    license_info={"name": "MIT License"},
 )
 
 # Đăng ký router kế toán với tiền tố /accounting
 # ✅ Đảm bảo các endpoint như /accounting/accounts/ hoạt động đúng
 app.include_router(accounting_router)
+
 
 @app.get("/", tags=["Root"])
 def read_root():
@@ -35,5 +32,5 @@ def read_root():
     return {
         "message": "Chào mừng đến với hệ thống kế toán tuân thủ TT99/2025/TT-BTC!",
         "docs": "/docs",
-        "redoc": "/redoc"
+        "redoc": "/redoc",
     }
