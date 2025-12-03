@@ -3,11 +3,29 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.application.services.tai_khoan_service import TaiKhoanService
+from app.application.services.tai_khoan.create_service import (
+    CreateTaiKhoanService,
+)
+from app.application.services.tai_khoan.delete_service import (
+    DeleteTaiKhoanService,
+)
+from app.application.services.tai_khoan.query_service import (
+    QueryTaiKhoanService,
+)
+from app.application.services.tai_khoan.update_service import (
+    UpdateTaiKhoanService,
+)
 from app.domain.models.account import TaiKhoan as TaiKhoanDomain
 from app.presentation.api.v1.accounting.dependencies import (
-    get_tai_khoan_service,
+    get_create_tai_khoan_service,
+    get_delete_tai_khoan_service,
+    get_query_tai_khoan_service,
+    get_update_tai_khoan_service,
 )
+
+# from app.presentation.api.v1.accounting.dependencies import (
+#     get_tai_khoan_service,
+# )
 from app.presentation.api.v1.accounting.schemas import (
     CreateTaiKhoanRequest,
     UpdateTaiKhoanRequest,
@@ -21,7 +39,7 @@ router = APIRouter(prefix="/accounts", tags=["Accounting - COA"])
 )
 def tao_tai_khoan(
     request: CreateTaiKhoanRequest,  # ✅ Thay bằng request model
-    service: TaiKhoanService = Depends(get_tai_khoan_service),
+    service: CreateTaiKhoanService = Depends(get_create_tai_khoan_service),
 ):
     """
     [TT99-PL2] Tạo tài khoản kế toán cấp 1, 2, 3 theo hệ thống tài khoản chuẩn.
@@ -30,7 +48,7 @@ def tao_tai_khoan(
     """
     tai_khoan = request.to_domain()  # ✅ Chuyển từ request sang domain
     try:
-        return service.tao_tai_khoan(tai_khoan)
+        return service.execute(tai_khoan)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -38,7 +56,7 @@ def tao_tai_khoan(
 @router.get("/{so_tai_khoan}", response_model=TaiKhoanDomain)
 def lay_tai_khoan(
     so_tai_khoan: str,
-    service: TaiKhoanService = Depends(get_tai_khoan_service),
+    service: QueryTaiKhoanService = Depends(get_query_tai_khoan_service),
 ):
     """
     [TT99-PL2] Lấy thông tin tài khoản theo số tài khoản.
@@ -55,7 +73,7 @@ def lay_tat_ca_tai_khoan(
         100, ge=1, le=1000, description="Số lượng tối đa tài khoản trả về"
     ),
     offset: int = Query(0, ge=0, description="Vị trí bắt đầu trả về"),
-    service: TaiKhoanService = Depends(get_tai_khoan_service),
+    service: QueryTaiKhoanService = Depends(get_query_tai_khoan_service),
 ):
     """
     [TT99-PL2] Lấy danh sách tất cả tài khoản trong hệ thống.
@@ -70,7 +88,7 @@ def lay_tat_ca_tai_khoan(
 def cap_nhat_tai_khoan(
     so_tai_khoan: str,
     request: UpdateTaiKhoanRequest,
-    service: TaiKhoanService = Depends(get_tai_khoan_service),
+    service: UpdateTaiKhoanService = Depends(get_update_tai_khoan_service),
 ):
     """
     [TT99-PL2] Cập nhật thông tin tài khoản kế toán.
@@ -96,7 +114,7 @@ def cap_nhat_tai_khoan(
 @router.delete("/{so_tai_khoan}", status_code=status.HTTP_204_NO_CONTENT)
 def xoa_tai_khoan(
     so_tai_khoan: str,
-    service: TaiKhoanService = Depends(get_tai_khoan_service),
+    service: DeleteTaiKhoanService = Depends(get_delete_tai_khoan_service),
 ):
     """
     [TT99-PL2] Xóa tài khoản kế toán.

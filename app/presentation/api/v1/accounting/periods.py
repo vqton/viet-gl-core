@@ -14,35 +14,57 @@ API Endpoints cho quản lý Kỳ Kế Toán (Accounting Periods).
 from datetime import date
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Body, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 
-from app.domain.models.accounting_period import KyKeToan as KyKeToanDomain
-from app.application.interfaces.period_repo import (
-    CreatePeriodServiceInterface,
-    LockPeriodServiceInterface,
-    UnlockPeriodServiceInterface,
-    QueryPeriodServiceInterface
+# ✅ Import đúng service classes (nếu bạn không có interface)
+from app.application.services.accounting_periods.create_service import (
+    CreateAccountingPeriodService,
 )
-from app.presentation.api.v1.accounting.dependencies import (
+from app.application.services.accounting_periods.lock_service import (
+    LockAccountingPeriodService,
+)
+from app.application.services.accounting_periods.query_service import (
+    QueryAccountingPeriodService,
+)
+from app.application.services.accounting_periods.unlock_service import (
+    UnlockAccountingPeriodService,
+)
+from app.domain.models.accounting_period import KyKeToan as KyKeToanDomain
+from app.presentation.api.v1.accounting.dependencies import (  # ✅ SỬA: Import đúng tên function từ dependencies
     get_create_period_service,
     get_lock_period_service,
+    get_query_period_service,
     get_unlock_period_service,
-    get_query_period_service
 )
+
+# ❌ XÓA import sai
+# from app.application.interfaces.period_repo import (
+#     CreatePeriodServiceInterface,
+#     LockPeriodServiceInterface,
+#     QueryPeriodServiceInterface,
+#     UnlockPeriodServiceInterface,
+# )
+
+
 
 # Tạo router cho nhóm API kỳ kế toán
 router = APIRouter(
-    prefix="/accounting-periods",
-    tags=["Accounting - Period Control"]
+    prefix="/accounting-periods", tags=["Accounting - Period Control"]
 )
 
 
 # --- 1. TẠO KỲ KẾ TOÁN ---
 
-@router.post("", response_model=KyKeToanDomain, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "", response_model=KyKeToanDomain, status_code=status.HTTP_201_CREATED
+)
 def tao_ky_ke_toan(
     payload: KyKeToanDomain,
-    service: CreatePeriodServiceInterface = Depends(get_create_period_service)
+    # ✅ SỬA: Dùng đúng tên service + interface (nếu có)
+    service: CreateAccountingPeriodService = Depends(
+        get_create_period_service
+    ),
 ):
     """
     [TT99-Đ25] Tạo mới một kỳ kế toán.
@@ -67,10 +89,11 @@ def tao_ky_ke_toan(
 
 # --- 2. TRA CỨU KỲ KẾ TOÁN ---
 
+
 @router.get("/{id}", response_model=KyKeToanDomain)
 def lay_ky_ke_toan_theo_id(
     id: int,
-    service: QueryPeriodServiceInterface = Depends(get_query_period_service)
+    service: QueryAccountingPeriodService = Depends(get_query_period_service),
 ):
     """
     [TT99-Đ25] Lấy thông tin kỳ kế toán theo ID.
@@ -83,14 +106,14 @@ def lay_ky_ke_toan_theo_id(
     if not ky:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Kỳ kế toán với ID {id} không tồn tại."
+            detail=f"Kỳ kế toán với ID {id} không tồn tại.",
         )
     return ky
 
 
 @router.get("", response_model=List[KyKeToanDomain])
 def lay_tat_ca_ky_ke_toan(
-    service: QueryPeriodServiceInterface = Depends(get_query_period_service)
+    service: QueryAccountingPeriodService = Depends(get_query_period_service),
 ):
     """
     [TT99-Đ25] Lấy danh sách tất cả kỳ kế toán.
@@ -103,11 +126,12 @@ def lay_tat_ca_ky_ke_toan(
 
 # --- 3. KHÓA KỲ KẾ TOÁN ---
 
+
 @router.post("/{id}/lock")
 def khoa_ky_ke_toan(
     id: int,
     nguoi_thuc_hien: str = Body(default="System", embed=True),
-    service: LockPeriodServiceInterface = Depends(get_lock_period_service)
+    service: LockAccountingPeriodService = Depends(get_lock_period_service),
 ):
     """
     [TT99-Đ25] Khóa kỳ kế toán.
@@ -129,20 +153,25 @@ def khoa_ky_ke_toan(
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Không thể khóa kỳ (có thể đã bị khóa hoặc còn bút toán Draft)."
+                detail="Không thể khóa kỳ (có thể đã bị khóa hoặc còn bút toán Draft).",
             )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )
 
 
 # --- 4. MỞ KỲ KẾ TOÁN ---
+
 
 @router.post("/{id}/unlock")
 def mo_ky_ke_toan(
     id: int,
     ly_do: str = Body(..., embed=True, description="Lý do mở kỳ (bắt buộc)"),
     nguoi_thuc_hien: str = Body(default="System", embed=True),
-    service: UnlockPeriodServiceInterface = Depends(get_unlock_period_service)
+    service: UnlockAccountingPeriodService = Depends(
+        get_unlock_period_service
+    ),
 ):
     """
     [TT99-Đ25] Mở lại kỳ kế toán đã khóa.
@@ -159,13 +188,20 @@ def mo_ky_ke_toan(
     - Trả về thông báo thành công.
     """
     try:
-        success = service.execute(id, ly_do=ly_do, nguoi_thuc_hien=nguoi_thuc_hien)
+        success = service.execute(
+            id, ly_do=ly_do, nguoi_thuc_hien=nguoi_thuc_hien
+        )
         if success:
-            return {"message": f"Kỳ {id} đã được mở thành công.", "ly_do": ly_do}
+            return {
+                "message": f"Kỳ {id} đã được mở thành công.",
+                "ly_do": ly_do,
+            }
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Không thể mở kỳ (có thể kỳ không ở trạng thái 'Locked')."
+                detail="Không thể mở kỳ (có thể kỳ không ở trạng thái 'Locked').",
             )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )

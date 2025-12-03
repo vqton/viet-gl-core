@@ -29,6 +29,9 @@ class AccountRepositoryInterface(ABC):
 
     @abstractmethod
     def delete(self, so_tai_khoan: str) -> bool:
+        """
+        Xóa tài khoản nếu không có giao dịch phát sinh.
+        """
         pass
 
     @abstractmethod

@@ -275,3 +275,49 @@ class JournalEntryRepository:
             )
             for line in sql_lines
         ]
+
+    def get_all_posted_in_range(
+        self, start: date, end: date
+    ) -> List[JournalEntryDomain]:
+        """
+        Lấy danh sách các bút toán đã được 'Posted' trong một khoảng thời gian,
+        bao gồm các dòng chi tiết.
+        """
+        sql_journal_entries = (
+            self.db_session.query(SQLJournalEntry)
+            .options(joinedload(SQLJournalEntry.lines))
+            .filter(
+                SQLJournalEntry.trang_thai == "Posted"
+            )  # Lọc theo trạng thái 'Posted'
+            .filter(
+                SQLJournalEntry.ngay_ct >= start
+            )  # Ngày chứng từ >= ngày bắt đầu
+            .filter(
+                SQLJournalEntry.ngay_ct <= end
+            )  # Ngày chứng từ <= ngày kết thúc
+            .all()
+        )
+
+        # Chuyển đổi từ ORM Model sang Domain Entity
+        journal_entries_domain = []
+        for sql_j in sql_journal_entries:
+            lines_domain = [
+                JournalEntryLineDomain(
+                    so_tai_khoan=line.so_tai_khoan,
+                    no=line.no,
+                    co=line.co,
+                    mo_ta=line.mo_ta,
+                )
+                for line in sql_j.lines
+            ]
+            journal_entries_domain.append(
+                JournalEntryDomain(
+                    id=sql_j.id,
+                    ngay_ct=sql_j.ngay_ct,
+                    so_phieu=sql_j.so_phieu,
+                    mo_ta=sql_j.mo_ta,
+                    lines=lines_domain,
+                    trang_thai=sql_j.trang_thai,
+                )
+            )
+        return journal_entries_domain
