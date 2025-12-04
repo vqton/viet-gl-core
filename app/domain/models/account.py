@@ -1,82 +1,61 @@
-# app/domain/models/account.py
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+# path: app/domain/models/account.py
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import List, Optional
+
+# Import DetailObjectType từ file journal_entry để xác định loại đối tượng chi tiết cần theo dõi
+from app.domain.models.journal_entry import DetailObjectType
 
 
-class LoaiTaiKhoan(str, Enum):
-    TAI_SAN = "TAI_SAN"
-    NO_PHAI_TRA = "NO_PHAI_TRA"
-    VON_CHU_SO_HUU = "VON_CHU_SO_HUU"
-    DOANH_THU = "DOANH_THU"
-    CHI_PHI = "CHI_PHI"
-    GIA_VON = "GIA_VON"
-    THU_NHAP_KHAC = "THU_NHAP_KHAC"
-    KHAC = "KHAC"
+class LoaiTaiKhoan(Enum):
+    """
+    Định nghĩa loại tài khoản theo TT99 (Tài sản, Nguồn vốn, Doanh thu, Chi phí, Khác).
+    Đây là phân loại căn cứ để xác định bản chất dư nợ/dư có.
+    """
+    TAI_SAN = auto()  # Loại 1, 2
+    NGUON_VON = auto() # Loại 3, 4
+    DOANH_THU = auto() # Loại 5, 7
+    CHI_PHI = auto() # Loại 6, 8
+    KHAC = auto() # Loại 0 (Tài khoản ngoài bảng)
 
-
-@dataclass
+@dataclass(frozen=True)
 class TaiKhoan:
-    so_tai_khoan: str
+    """
+    Mô hình Domain cho Tài Khoản Kế Toán, tuân thủ TT99/2025/TT-BTC.
+    Dùng tiếng Việt không dấu cho thuộc tính, PascalCase cho tên Class.
+    
+    Thuộc tính 'required_detail_type' được thêm để thực thi Vấn đề 2 PM:
+    Kiểm tra bắt buộc phải hạch toán kèm đối tượng chi tiết (VD: Khách hàng, Nhà cung cấp).
+    """
+    so_tai_khoan: str  # Ví dụ: '111', '1111', '11111'
     ten_tai_khoan: str
     loai_tai_khoan: LoaiTaiKhoan
-    cap_tai_khoan: int = 1
-    so_tai_khoan_cha: Optional[str] = None
-    la_tai_khoan_tong_hop: bool = True
-
-    def __post_init__(self):
-        # 1. Kiểm tra số tài khoản không trống
-        if not self.so_tai_khoan or not self.so_tai_khoan.strip():
-            raise ValueError("Số tài khoản không được để trống.")
-
-        # 2. Kiểm tra tên tài khoản không trống
-        if not self.ten_tai_khoan or not self.ten_tai_khoan.strip():
-            raise ValueError("Tên tài khoản không được để trống.")
-
-        # 3. Kiểm tra cấp tài khoản hợp lệ
-        if self.cap_tai_khoan < 1 or self.cap_tai_khoan > 3:
-            raise ValueError("Cấp tài khoản phải từ 1 đến 3.")
-
-        # ✅ [TT99-PL2] Không cho phép tài khoản nhóm 9xx (ví dụ: 911)
-        if self.so_tai_khoan.startswith("9"):
-            raise ValueError(
-                "TT99/2025/TT-BTC không có tài khoản nhóm 9xx. Không được tạo tài khoản bắt đầu bằng '9'."
-            )
-
-        # 4. Tài khoản cấp con phải có tài khoản cha
-        if self.cap_tai_khoan > 1:
-            if not self.so_tai_khoan_cha or not self.so_tai_khoan_cha.strip():
-                raise ValueError(
-                    f"Tài khoản cấp con (Cấp {self.cap_tai_khoan}) phải có tài khoản cha."
-                )
-
-    def __post_init__(self):
-        self.kiem_tra_hop_le()
+    cap_tai_khoan: int = field(default=1)  # Cấp 1, 2, 3, 4, 5...
+    so_tai_khoan_cha: Optional[str] = field(default=None)
+    # la_tai_khoan_tong_hop giữ lại theo cấu trúc cũ, nhưng ưu tiên dùng has_children() của Repo cho nghiệp vụ
+    la_tai_khoan_tong_hop: bool = field(default=True) 
+    
+    # Danh sách các loại đối tượng chi tiết bắt buộc phải theo dõi khi hạch toán
+    required_detail_type: List[DetailObjectType] = field(default_factory=list) 
 
     def kiem_tra_hop_le(self):
         """
-        [TT99-PL2] Kiểm tra tính hợp lệ của tài khoản theo Phụ lục II.
+        Kiểm tra các ràng buộc cơ bản của Domain Model Tài Khoản (ví dụ: cấp tài khoản, quan hệ cha con).
+        
+        Raises:
+            ValueError: Nếu tài khoản vi phạm các quy tắc ràng buộc cấp/cha con.
         """
-        if not self.so_tai_khoan or not self.so_tai_khoan.strip():
-            raise ValueError("Số tài khoản không được để trống.")
-        if not self.ten_tai_khoan or not self.ten_tai_khoan.strip():
-            raise ValueError("Tên tài khoản không được để trống.")
-        if len(self.so_tai_khoan) > 20:
-            raise ValueError("Số tài khoản không được vượt quá 20 ký tự.")
-        if len(self.ten_tai_khoan) > 256:
-            raise ValueError("Tên tài khoản không được vượt quá 256 ký tự.")
-        if self.cap_tai_khoan < 1 or self.cap_tai_khoan > 3:
-            raise ValueError(
-                "Cấp tài khoản phải từ 1 đến 3 theo TT99/2025/TT-BTC Phụ lục II."
-            )
-        if self.cap_tai_khoan > 1:
-            if not self.so_tai_khoan_cha or not self.so_tai_khoan_cha.strip():
-                raise ValueError(
-                    f"Tài khoản cấp con (Cấp {self.cap_tai_khoan}) phải có số tài khoản cha."
-                )
-
-        # ✅ [TT99-PL2] Cấm tài khoản nhóm 9xx
+        if not (1 <= self.cap_tai_khoan <= 5):
+             raise ValueError("Cấp tài khoản phải nằm trong phạm vi 1 đến 5.")
+             
+        # Cảnh báo cho tài khoản 9xx (Kế toán quản trị)
         if self.so_tai_khoan.startswith("9"):
-            raise ValueError(
-                "TT99/2025/TT-BTC không có tài khoản nhóm 9xx. Không được phép tạo tài khoản bắt đầu bằng '9'."
-            )
+            print(f"Cảnh báo: Tài khoản {self.so_tai_khoan} thuộc nhóm 9xx (Kế toán quản trị) - không theo chuẩn Phụ lục II TT99.")
+            
+        # Tài khoản cấp 1 phải không có cha
+        if self.cap_tai_khoan == 1 and self.so_tai_khoan_cha is not None:
+             raise ValueError("Tài khoản cấp 1 không được có tài khoản cha.")
+        
+        # Tài khoản con phải bắt đầu bằng số tài khoản cha
+        if self.so_tai_khoan_cha and not self.so_tai_khoan.startswith(self.so_tai_khoan_cha):
+             raise ValueError("Số tài khoản con phải bắt đầu bằng số tài khoản cha.")

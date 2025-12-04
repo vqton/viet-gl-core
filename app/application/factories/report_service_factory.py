@@ -1,5 +1,3 @@
-# app/application/services/reports/service_factory.py
-
 """
 Factory tạo và quản lý các service báo cáo theo TT99/2025/TT-BTC.
 Tuân thủ DIP và SRP.
@@ -49,16 +47,27 @@ class ReportServiceFactory:
     # --------------------------------------------------------
     def create_performance_service(self) -> PerformanceService:
         return PerformanceService(
-            journal_repo=self._je_repo,
-            account_repo=self._acc_repo,
+            repo=self._je_repo,
+            acc_repo=self._acc_repo,
         )
 
     # --------------------------------------------------------
     # BÁO CÁO B03 – Lưu chuyển tiền tệ
     # --------------------------------------------------------
     def create_cash_flow_service(self) -> CashFlowService:
+        """
+        Khởi tạo CashFlowService. Service này phụ thuộc vào PerformanceService
+        để lấy Lợi nhuận trước thuế (LNTT).
+        """
+        # 1. Tạo PerformanceService, cần thiết cho tính toán Lợi nhuận trước thuế
+        performance_service = (
+            self.create_performance_service()
+        )  # Tái sử dụng factory method
+
+        # 2. Khởi tạo CashFlowService với dependency
         return CashFlowService(
             repo=self._je_repo,
+            performance_service=performance_service,  # ✅ FIX: Tiêm PerformanceService vào CashFlowService
         )
 
     # --------------------------------------------------------

@@ -1,4 +1,4 @@
-# app/application/factories/tai_khoan_service_factory.py
+# path: app/application/factories/tai_khoan_service_factory.py
 from app.application.interfaces.account_repo import AccountRepositoryInterface
 from app.application.interfaces.account_validator import TaiKhoanValidator
 from app.application.services.tai_khoan.create_service import (
@@ -33,7 +33,8 @@ class TaiKhoanServiceFactory:
         return CreateTaiKhoanService(repo=self.repo, validator=self.validator)
 
     def create_update_service(self) -> UpdateTaiKhoanService:
-        return UpdateTaiKhoanService(repo=self.repo)
+        # Inject validator cho Update Service
+        return UpdateTaiKhoanService(repo=self.repo, validator=self.validator) 
 
     def create_delete_service(self) -> DeleteTaiKhoanService:
         return DeleteTaiKhoanService(repo=self.repo)

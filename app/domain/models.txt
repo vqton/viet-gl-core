@@ -1,3 +1,207 @@
+
+### B?t d?u file: D:\tt99acct\app\domain\models\account.py ###
+# app/domain/models/account.py
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+
+class LoaiTaiKhoan(str, Enum):
+    TAI_SAN = "TAI_SAN"
+    NO_PHAI_TRA = "NO_PHAI_TRA"
+    VON_CHU_SO_HUU = "VON_CHU_SO_HUU"
+    DOANH_THU = "DOANH_THU"
+    CHI_PHI = "CHI_PHI"
+    GIA_VON = "GIA_VON"
+    THU_NHAP_KHAC = "THU_NHAP_KHAC"
+    KHAC = "KHAC"
+
+
+@dataclass
+class TaiKhoan:
+    so_tai_khoan: str
+    ten_tai_khoan: str
+    loai_tai_khoan: LoaiTaiKhoan
+    cap_tai_khoan: int = 1
+    so_tai_khoan_cha: Optional[str] = None
+    la_tai_khoan_tong_hop: bool = True
+
+    def __post_init__(self):
+        # 1. Kiểm tra số tài khoản không trống
+        if not self.so_tai_khoan or not self.so_tai_khoan.strip():
+            raise ValueError("Số tài khoản không được để trống.")
+
+        # 2. Kiểm tra tên tài khoản không trống
+        if not self.ten_tai_khoan or not self.ten_tai_khoan.strip():
+            raise ValueError("Tên tài khoản không được để trống.")
+
+        # 3. Kiểm tra cấp tài khoản hợp lệ
+        if self.cap_tai_khoan < 1 or self.cap_tai_khoan > 3:
+            raise ValueError("Cấp tài khoản phải từ 1 đến 3.")
+
+        # ✅ [TT99-PL2] Không cho phép tài khoản nhóm 9xx (ví dụ: 911)
+        if self.so_tai_khoan.startswith("9"):
+            raise ValueError(
+                "TT99/2025/TT-BTC không có tài khoản nhóm 9xx. Không được tạo tài khoản bắt đầu bằng '9'."
+            )
+
+        # 4. Tài khoản cấp con phải có tài khoản cha
+        if self.cap_tai_khoan > 1:
+            if not self.so_tai_khoan_cha or not self.so_tai_khoan_cha.strip():
+                raise ValueError(
+                    f"Tài khoản cấp con (Cấp {self.cap_tai_khoan}) phải có tài khoản cha."
+                )
+
+    def __post_init__(self):
+        self.kiem_tra_hop_le()
+
+    def kiem_tra_hop_le(self):
+        """
+        [TT99-PL2] Kiểm tra tính hợp lệ của tài khoản theo Phụ lục II.
+        """
+        if not self.so_tai_khoan or not self.so_tai_khoan.strip():
+            raise ValueError("Số tài khoản không được để trống.")
+        if not self.ten_tai_khoan or not self.ten_tai_khoan.strip():
+            raise ValueError("Tên tài khoản không được để trống.")
+        if len(self.so_tai_khoan) > 20:
+            raise ValueError("Số tài khoản không được vượt quá 20 ký tự.")
+        if len(self.ten_tai_khoan) > 256:
+            raise ValueError("Tên tài khoản không được vượt quá 256 ký tự.")
+        if self.cap_tai_khoan < 1 or self.cap_tai_khoan > 3:
+            raise ValueError(
+                "Cấp tài khoản phải từ 1 đến 3 theo TT99/2025/TT-BTC Phụ lục II."
+            )
+        if self.cap_tai_khoan > 1:
+            if not self.so_tai_khoan_cha or not self.so_tai_khoan_cha.strip():
+                raise ValueError(
+                    f"Tài khoản cấp con (Cấp {self.cap_tai_khoan}) phải có số tài khoản cha."
+                )
+
+        # ✅ [TT99-PL2] Cấm tài khoản nhóm 9xx
+        if self.so_tai_khoan.startswith("9"):
+            raise ValueError(
+                "TT99/2025/TT-BTC không có tài khoản nhóm 9xx. Không được phép tạo tài khoản bắt đầu bằng '9'."
+            )
+
+
+### B?t d?u file: D:\tt99acct\app\domain\models\accounting_period.py ###
+from dataclasses import dataclass
+from datetime import date
+from typing import Optional
+
+
+@dataclass
+class KyKeToan:
+    """
+    Entity đại diện cho một kỳ kế toán (Accounting Period).
+    Chứa các thuộc tính cơ bản và quy tắc hợp lệ của một kỳ kế toán.
+    """
+
+    id: Optional[int] = None
+    ten_ky: str = ""  # Tên định danh kỳ (Ví dụ: "Q1-2025", "Năm 2025")
+    ngay_bat_dau: date = date.today()  # Ngày bắt đầu của kỳ kế toán
+    ngay_ket_thuc: date = date.today()  # Ngày kết thúc của kỳ kế toán
+    trang_thai: str = (
+        "Open"  # Trạng thái của kỳ: "Open" (Mở), "Locked" (Đã khóa)
+    )
+    ghi_chu: str = ""
+
+    def kiem_tra_hop_le(self):
+        """
+        [Nghiệp vụ] Kiểm tra các ràng buộc cơ bản của Entity KyKeToan.
+        1. Đảm bảo tên kỳ không trống.
+        2. Đảm bảo ngày bắt đầu không được sau ngày kết thúc.
+        3. Đảm bảo trạng thái kỳ chỉ là 'Open' hoặc 'Locked'.
+        """
+        if not self.ten_ky or not self.ten_ky.strip():
+            raise ValueError("Tên kỳ không được để trống.")
+        if self.ngay_bat_dau > self.ngay_ket_thuc:
+            raise ValueError("Ngày bắt đầu không thể sau ngày kết thúc.")
+        if self.trang_thai not in ["Open", "Locked"]:
+            raise ValueError("Trạng thái kỳ phải là 'Open' hoặc 'Locked'.")
+
+    def __post_init__(self):
+        """
+        Hàm được gọi sau khi khởi tạo để tự động thực hiện kiểm tra hợp lệ
+        ngay khi đối tượng KyKeToan được tạo ra.
+        """
+        self.kiem_tra_hop_le()
+
+
+### B?t d?u file: D:\tt99acct\app\domain\models\journal_entry.py ###
+from datetime import date
+from decimal import Decimal
+from typing import List, Optional
+
+from pydantic import BaseModel, field_validator
+
+# Hằng số cho độ chính xác tiền tệ (Ví dụ: làm tròn đến 0 đồng)
+CURRENCY_PRECISION = Decimal("1")
+
+
+class JournalEntryLine(BaseModel):
+    """
+    Chi tiết một dòng bút toán (Nợ hoặc Có).
+    """
+
+    so_tai_khoan: str  # Ví dụ: "111", "641"
+    mo_ta: Optional[str] = None
+    no: Decimal = Decimal(0)  # Số tiền bên Nợ
+    co: Decimal = Decimal(0)  # Số tiền bên Có
+    so_chung_tu_goc: Optional[str] = None # ĐÃ THÊM: Số chứng từ gốc (nếu có)
+
+    # Đảm bảo Decimal được áp dụng chính xác cho giá trị tiền tệ
+    @field_validator("no", "co", mode="before")
+    def convert_to_decimal(cls, value):
+        if isinstance(value, (int, float)):
+            value = str(value)
+        return Decimal(value).quantize(CURRENCY_PRECISION)
+
+    @field_validator("no")
+    def check_no_non_negative(cls, value):
+        if value < Decimal(0):
+            raise ValueError("Số tiền bên Nợ phải không âm")
+        return value
+
+    @field_validator("co")
+    def check_co_non_negative(cls, value):
+        if value < Decimal(0):
+            raise ValueError("Số tiền bên Có phải không âm")
+        return value
+
+
+class JournalEntry(BaseModel):
+    """
+    Model Bút toán tổng hợp (Journal Entry).
+    """
+
+    id: Optional[int] = None
+    ngay_ct: date = date.today()  # Ngày chứng từ (Sử dụng datetime.date chuẩn)
+    so_phieu: str  # Số chứng từ/phiếu kế toán
+    mo_ta: str  # Diễn giải chung
+    lines: List[JournalEntryLine]  # Chi tiết các dòng bút toán
+    trang_thai: str = "Draft"  # Ví dụ: "Draft", "Posted", "Cancelled"
+
+    # Sử dụng __post_init__ để kiểm tra tính cân bằng của bút toán
+    def __post_init__(self):
+        # Tính tổng Nợ và Có
+        tong_no = sum(
+            (line.no for line in self.lines), start=Decimal(0)
+        ).quantize(CURRENCY_PRECISION)
+        
+        tong_co = sum(
+            (line.co for line in self.lines), start=Decimal(0)
+        ).quantize(CURRENCY_PRECISION)
+
+        if tong_no != tong_co:
+            raise ValueError(
+                f"Bút toán không cân bằng: Tổng Nợ ({tong_no}) khác Tổng Có ({tong_co})"
+            )
+        
+        # Thêm thuộc tính động cho tổng cộng
+        self.tong_cong = tong_no
+
+### B?t d?u file: D:\tt99acct\app\domain\models\report.py ###
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
@@ -276,3 +480,6 @@ class BaoCaoThuyetMinh(BaoCaoTaiChinhBase):
     thong_tin_giao_dich_voi_cac_ben_lien_quan: str = "Không có"
     cac_su_kien_sau_ngay_ket_thuc_ky_ke_toan: str = "Không có"
     # ... (các phần khác của thuyết minh)
+
+### B?t d?u file: D:\tt99acct\app\domain\models\__init__.py ###
+

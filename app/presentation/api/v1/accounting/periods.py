@@ -46,7 +46,6 @@ from app.presentation.api.v1.accounting.dependencies import (  # ✅ SỬA: Impo
 # )
 
 
-
 # Tạo router cho nhóm API kỳ kế toán
 router = APIRouter(
     prefix="/accounting-periods", tags=["Accounting - Period Control"]
