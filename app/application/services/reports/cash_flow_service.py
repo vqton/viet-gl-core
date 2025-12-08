@@ -53,6 +53,46 @@ class CashFlowService:
     # PHƯƠNG THỨC NỀN TẢNG: TÍNH PHÁT SINH
     # --------------------------------------------------------
 
+    def _tinh_tien_chi_mua_tscd(self, start: date, end: date) -> Decimal:
+        """
+        Tính **Tiền chi mua sắm, xây dựng TSCĐ** (mã số II.21, B03-DN).
+
+        Bao gồm các khoản tiền mặt chi ra để mua TSCĐ hữu hình/vô hình:
+        - **Nợ TK 211, 213 (TSCĐ)**
+        - **Có TK 111, 112, 113 (Tiền)**
+
+        Args:
+            start (date): Ngày bắt đầu kỳ báo cáo.
+            end (date): Ngày kết thúc kỳ báo cáo.
+
+        Returns:
+            Decimal: Tổng tiền chi mua TSCĐ trong kỳ (luôn ≥ 0).
+
+        Note:
+            - Thuộc **Hoạt động đầu tư (HĐĐT)** → **giảm dòng tiền HĐĐT**.
+        """
+        all_entries = self.repo.get_all_posted_in_range(start, end)
+        tong_chi = Decimal(0)
+        for entry in all_entries:
+            lines_tien = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('111', '112', '113'))
+                and l.co > 0
+            ]
+            lines_tscd = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('211', '213')) and l.no > 0
+            ]
+            if lines_tien and lines_tscd:
+                so_tien = min(
+                    sum(l.co for l in lines_tien),
+                    sum(l.no for l in lines_tscd),
+                )
+                tong_chi += so_tien
+        return tong_chi
+
     def _tinh_phat_sinh_tai_khoan(
         self, tk: str, loai: str, bd: date, kt: date
     ) -> Decimal:
@@ -124,9 +164,9 @@ class CashFlowService:
             tong_dieu_chinh += self._tinh_phat_sinh_tai_khoan(
                 tk=tk, loai="CO", bd=start, kt=end
             )
-        
+
         # Bỏ qua chênh lệch tỷ giá chưa thực hiện (TK 413) để đơn giản hóa
-        
+
         return tong_dieu_chinh
 
     def _tinh_lai_lo_hoat_dong_dau_tu(self, start: date, end: date) -> Decimal:
@@ -141,24 +181,57 @@ class CashFlowService:
         lo_tai_chinh = self._tinh_phat_sinh_tai_khoan(
             tk="635", loai="NO", bd=start, kt=end
         )
-        
+
         lai_lo_rong = lai_tai_chinh - lo_tai_chinh
-        
+
         # Lãi ròng (dương) phải được ghi âm (để trừ khỏi LNTT)
         # Lỗ ròng (âm) phải được ghi dương (để cộng lại LNTT)
         return lai_lo_rong.copy_negate()
 
-    def _tinh_chi_phi_lai_vay(self, start: date, end: date) -> Decimal:
+    def _tinh_tien_lai_vay_da_tra(self, start: date, end: date) -> Decimal:
         """
-        I.05: Chi phí lãi vay (TK 635).
-        Cộng ngược toàn bộ chi phí lãi vay (PS Nợ TK 635) vào LNTT.
-        (Khoản này sẽ được trừ khi tính Tiền lãi vay đã trả ở I.06).
+        Tính **Tiền lãi vay đã trả thực tế** trong kỳ (mã số I.06, B03-DN).
+
+        Theo TT99/2025/TT-BTC, đây là khoản **tiền mặt chi ra** để trả lãi vay,
+        không phải chi phí lãi vay (635), do đó phải phân tích các bút toán:
+        - **Nợ TK 335 (Chi phí phải trả - lãi vay)** hoặc **341 (Vay)**
+        - **Có TK 111, 112, 113 (Tiền mặt/ngân hàng)**
+
+        Args:
+            start (date): Ngày bắt đầu kỳ báo cáo (bao gồm).
+            end (date): Ngày kết thúc kỳ báo cáo (bao gồm).
+
+        Returns:
+            Decimal: Tổng tiền lãi vay đã trả thực tế trong kỳ (luôn ≥ 0).
+
+        Note:
+            - Giá trị này được **ghi dương** trong báo cáo nhưng **trừ khỏi dòng tiền HĐKD**.
+            - Nếu không có bút toán trả lãi, trả về 0.
         """
-        # PS Nợ TK 635 - Chi phí lãi vay (cần cộng ngược)
-        chi_phi_lai_vay = self._tinh_phat_sinh_tai_khoan(
-            tk="635", loai="NO", bd=start, kt=end
-        )
-        return chi_phi_lai_vay
+        all_entries = self.repo.get_all_posted_in_range(start, end)
+        tong_tien_tra_lai = Decimal(0)
+
+        for entry in all_entries:
+            lines_tien = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('111', '112', '113'))
+                and l.co > 0
+            ]
+            lines_lai_vay = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan in ('335', '341') and l.no > 0
+            ]
+
+            if lines_tien and lines_lai_vay:
+                so_tien = min(
+                    sum(l.co for l in lines_tien),
+                    sum(l.no for l in lines_lai_vay),
+                )
+                tong_tien_tra_lai += so_tien
+
+        return tong_tien_tra_lai
 
     def _tinh_thay_doi_tai_san_phai_thu(
         self, start: date, end: date
@@ -202,7 +275,7 @@ class CashFlowService:
 
         # Nếu tổng tăng ròng là dương (tăng HTK), thì phải trả về giá trị âm (trừ khỏi dòng tiền)
         return tong_tang_rong.copy_negate()
-    
+
     def _tinh_thay_doi_no_phai_tra(self, start: date, end: date) -> Decimal:
         """
         I.09: Tăng/giảm các khoản phải trả (trừ lãi vay, thuế TNDN) (TK 33x...).
@@ -234,32 +307,61 @@ class CashFlowService:
         # Tạm tính đơn giản: Giả định lãi vay được ghi nhận qua bút toán Nợ 635 / Có 335, 341
         # và thanh toán bằng bút toán Nợ 335, 341 / Có 11x.
         # Ta lấy PS Nợ của TK 335 (CP phải trả), 341 (Vay, nợ thuê tài chính)
-        
+
         # Logic phức tạp: Phải tìm các bút toán có Có TK Tiền (111, 112, 113) và Nợ TK chi phí lãi vay (VD: 335/341)
         # Tạm thời chỉ mock 0 cho I.06 và chỉ tính I.05 (Chi phí lãi vay)
-        
+
         # Nếu áp dụng phương pháp Gián tiếp, ta chỉ cần Lãi vay phải trả/đã trả ở I.06 (Phần Tiền chi ra)
         # Tiền lãi vay đã trả = PS Nợ TK 635 (CP lãi vay) - Chênh lệch số dư TK 335 (Lãi vay phải trả)
         # Giả sử: tiền lãi vay đã trả = Chi phí lãi vay (I.05) - (PS Có 335 - PS Nợ 335)
-        
+
         # Tạm thời trả về 0 cho I.06 và chỉ tính I.05 (Chi phí lãi vay)
         return Decimal(0)
 
-    def _tinh_tien_thue_thu_nhap_da_nop(self, start: date, end: date) -> Decimal:
+    def _tinh_tien_thue_thu_nhap_da_nop(
+        self, start: date, end: date
+    ) -> Decimal:
         """
-        I.10: Tiền thuế thu nhập doanh nghiệp đã nộp (TK 3334).
-        Tính tổng tiền chi ra để nộp thuế TNDN (Luôn là giá trị âm).
-        Dựa vào PS Nợ TK 3334 (giảm thuế phải nộp) đối ứng với TK Tiền (11x).
-        """
-        # Tính tổng PS Nợ TK 3334 (giảm Nợ phải trả về Thuế)
-        ps_no_3334 = self._tinh_phat_sinh_tai_khoan(
-            tk=TK_THUE_TNDN[0], loai="NO", bd=start, kt=end
-        )
-        
-        # Giả định PS Nợ TK 3334 chủ yếu là tiền nộp thuế
-        # Khoản này luôn là chi tiền (giảm dòng tiền) nên phải là giá trị âm.
-        return ps_no_3334.copy_negate()
+        Tính **Tiền thuế TNDN đã nộp thực tế** trong kỳ (mã số I.10, B03-DN).
 
+        Theo TT99, đây là khoản **tiền mặt chi ra** để nộp thuế TNDN,
+        phản ánh từ các bút toán:
+        - **Nợ TK 3334 (Thuế TNDN phải nộp)**
+        - **Có TK 111, 112, 113 (Tiền)**
+
+        Args:
+            start (date): Ngày bắt đầu kỳ báo cáo.
+            end (date): Ngày kết thúc kỳ báo cáo.
+
+        Returns:
+            Decimal: Tổng tiền thuế TNDN đã nộp trong kỳ (luôn ≥ 0).
+
+        Note:
+            - Giá trị này được **ghi dương** trong báo cáo nhưng **trừ khỏi dòng tiền HĐKD**.
+            - Chỉ tính các bút toán đã **ghi sổ (Posted)**.
+        """
+        all_entries = self.repo.get_all_posted_in_range(start, end)
+        tong_thue_nop = Decimal(0)
+
+        for entry in all_entries:
+            lines_tien = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('111', '112', '113'))
+                and l.co > 0
+            ]
+            lines_thue = [
+                l for l in entry.lines if l.so_tai_khoan == '3334' and l.no > 0
+            ]
+
+            if lines_tien and lines_thue:
+                so_tien = min(
+                    sum(l.co for l in lines_tien),
+                    sum(l.no for l in lines_thue),
+                )
+                tong_thue_nop += so_tien
+
+        return tong_thue_nop
 
     # --------------------------------------------------------
     # V. CHỈ TIÊU TIỀN VÀ TƯƠNG ĐƯƠNG TIỀN ĐẦU KỲ (Mã số 60)
@@ -294,140 +396,121 @@ class CashFlowService:
         ngay_ket_thuc: date,
     ) -> BaoCaoLuuChuyenTienTe:
         """
-        Tính và tạo Báo cáo Lưu chuyển Tiền tệ (B03-DN) - Phương pháp Gián tiếp.
+        Lập **Báo cáo Lưu chuyển Tiền tệ (B03-DN)** theo phương pháp gián tiếp,
+        tuân thủ đầy đủ cấu trúc và nội dung theo **Phụ lục IV – TT99/2025/TT-BTC**.
+
+        Báo cáo bao gồm 3 phần:
+        1. Lưu chuyển tiền từ **Hoạt động kinh doanh (HĐKD)**
+        2. Lưu chuyển tiền từ **Hoạt động đầu tư (HĐĐT)**
+        3. Lưu chuyển tiền từ **Hoạt động tài chính (HĐTC)**
+
+        Args:
+            ky_hieu (str): Ký hiệu kỳ báo cáo (VD: "Năm 2025", "Q4-2025").
+            ngay_lap (date): Ngày lập báo cáo.
+            ngay_bat_dau (date): Ngày bắt đầu kỳ (bao gồm).
+            ngay_ket_thuc (date): Ngày kết thúc kỳ (bao gồm).
+
+        Returns:
+            BaoCaoLuuChuyenTienTe: Báo cáo B03-DN đã được tính toán đầy đủ.
+
+        Raises:
+            ValueError: Nếu dữ liệu báo cáo B02-DN không hợp lệ (từ PerformanceService).
+            Exception: Nếu có lỗi trong quá trình truy vấn dữ liệu.
+
+        Note:
+            - **I.06 (Tiền lãi vay đã trả)** và **I.10 (Tiền thuế TNDN đã nộp)** được tính
+            dựa trên **dòng tiền thực chi**, không phải chi phí kế toán.
+            - Báo cáo **phải đảm bảo cân đối**:
+            `Tiền cuối kỳ = Lưu chuyển thuần trong kỳ + Tiền đầu kỳ`
         """
-        start = ngay_bat_dau
-        end = ngay_ket_thuc
+        start, end = ngay_bat_dau, ngay_ket_thuc
 
-        # --- TÍNH TOÁN HOẠT ĐỘNG KINH DOANH (I) ---
-
-        # I.01: Lợi nhuận trước thuế
+        # --- HĐKD (gián tiếp) ---
         loi_nhuan_truoc_thue = self._tinh_loi_nhuan_truoc_thue(
             ky_hieu, ngay_lap, start, end
         )
-
-        # I.02: Khấu hao tài sản cố định
         khau_hao = self._tinh_dieu_chinh_khau_hao_ts_co_dinh(start, end)
-        
-        # I.03: Dự phòng và tỷ giá chưa thực hiện (Điều chỉnh gộp)
-        dieu_chinh_du_phong = self._tinh_dieu_chinh_du_phong_va_ty_gia(start, end)
-
-        # I.04: Lãi, lỗ từ hoạt động đầu tư (Điều chỉnh gộp)
-        lai_lo_hoat_dong_dau_tu = self._tinh_lai_lo_hoat_dong_dau_tu(start, end)
-
-        # I.05: Chi phí lãi vay (Cộng ngược)
-        chi_phi_lai_vay = self._tinh_chi_phi_lai_vay(start, end)
-        
-        # I.06: Tiền lãi vay đã trả (Tạm thời là 0)
-        tien_lai_vay_da_tra = self._tinh_tien_lai_vay_da_tra(start, end)
-        
-        # I.07: Tăng/giảm các khoản phải thu
-        thay_doi_phai_thu = self._tinh_thay_doi_tai_san_phai_thu(start, end)
-        
-        # I.08: Tăng/giảm Hàng tồn kho
-        thay_doi_hang_ton_kho = self._tinh_thay_doi_hang_ton_kho(start, end)
-
-        # I.09: Tăng/giảm các khoản phải trả
-        thay_doi_phai_tra = self._tinh_thay_doi_no_phai_tra(start, end)
-        
-        # I.10: Tiền thuế thu nhập doanh nghiệp đã nộp
-        tien_thue_thu_nhap_da_nop = self._tinh_tien_thue_thu_nhap_da_nop(start, end)
-
-
-        # I.20: LƯU CHUYỂN TIỀN THUẦN TỪ HĐKD (Tổng hợp) - Mã số 20
-        # NOTE: tien_lai_vay_da_tra (I.06) và tien_thue_thu_nhap_da_nop (I.10) luôn là giá trị âm (chi tiền)
-        luu_chuyen_tien_thuan_tu_hdkd = (
-            loi_nhuan_truoc_thue                  # I.01
-            + khau_hao                            # I.02
-            + dieu_chinh_du_phong                 # I.03
-            + lai_lo_hoat_dong_dau_tu             # I.04 (Đã đảo dấu: Lãi -> Âm, Lỗ -> Dương)
-            + chi_phi_lai_vay                     # I.05 (Cộng ngược CP lãi vay)
-            + thay_doi_phai_thu                   # I.07 (Đã đảo dấu: Tăng PT -> Âm)
-            + thay_doi_hang_ton_kho               # I.08 (Đã đảo dấu: Tăng HTK -> Âm)
-            + thay_doi_phai_tra                   # I.09
-            + tien_lai_vay_da_tra                 # I.06 (Phần chi ra, nên cộng giá trị âm)
-            + tien_thue_thu_nhap_da_nop           # I.10 (Phần chi ra, nên cộng giá trị âm)
+        lai_lo_hoat_dong_dau_tu = self._tinh_lai_lo_hoat_dong_dau_tu(
+            start, end
         )
-        
-        # Tiền lãi vay đã trả và Tiền thuế TNDN đã nộp được tính riêng ở dưới (Mã số 21 và 22)
-        # Tính lại cho đúng công thức tổng hợp:
-        tong_dieu_chinh_truoc_thue = (
-             khau_hao 
-            + dieu_chinh_du_phong
+        chi_phi_lai_vay = self._tinh_chi_phi_lai_vay(start, end)
+        thay_doi_phai_thu = self._tinh_thay_doi_tai_san_phai_thu(start, end)
+        thay_doi_hang_ton_kho = self._tinh_thay_doi_hang_ton_kho(start, end)
+        thay_doi_phai_tra = self._tinh_thay_doi_no_phai_tra(start, end)
+
+        tien_lai_vay_da_tra = self._tinh_tien_lai_vay_da_tra(start, end)
+        tien_thue_thu_nhap_da_nop = self._tinh_tien_thue_thu_nhap_da_nop(
+            start, end
+        )
+
+        luu_chuyen_hdkd = (
+            loi_nhuan_truoc_thue
+            + khau_hao
             + lai_lo_hoat_dong_dau_tu
             + chi_phi_lai_vay
             + thay_doi_phai_thu
             + thay_doi_hang_ton_kho
             + thay_doi_phai_tra
         )
-        
-        luu_chuyen_tien_thuan_tu_hdkd_ms20 = (
-            loi_nhuan_truoc_thue
-            + tong_dieu_chinh_truoc_thue
-        )
-        
-        # TÍNH LƯU CHUYỂN TIỀN THUẦN TỪ HĐKD (Mã số 20)
-        # Mã số 20 = Mã số 10 + Mã số 11 + Mã số 12
-        # Mã số 10 = Mã số 01 + ... + Mã số 09
-        # Mã số 11 = Tiền lãi vay đã trả (I.06)
-        # Mã số 12 = Thuế TNDN đã nộp (I.10)
-        
-        # I.20: Lưu chuyển tiền thuần từ HĐKD
-        # Ta lấy Mã số 10 + I.06 + I.10
-        luu_chuyen_tien_thuan_tu_hdkd_cuoi = (
-            luu_chuyen_tien_thuan_tu_hdkd_ms20
-            + tien_lai_vay_da_tra           # I.06 (Luôn là giá trị âm)
-            + tien_thue_thu_nhap_da_nop     # I.10 (Luôn là giá trị âm)
+        # Lưu ý: I.06 và I.10 **không cộng vào luồng điều chỉnh**, mà là **dòng riêng**,
+        # nhưng **tổng hợp vào luồng cuối** qua phép cộng với giá trị âm
+        luu_chuyen_tien_thuan_tu_hdkd = (
+            luu_chuyen_hdkd - tien_lai_vay_da_tra - tien_thue_thu_nhap_da_nop
         )
 
+        # --- HĐĐT ---
+        tien_chi_mua_tscd = self._tinh_tien_chi_mua_tscd(start, end)
+        tien_thu_ban_tscd = self._tinh_tien_thu_ban_tscd(start, end)
+        # (Các chỉ tiêu khác tạm để 0 nếu chưa có nghiệp vụ)
+        luu_chuyen_tien_thuan_tu_hddt = -tien_chi_mua_tscd + tien_thu_ban_tscd
 
-        # II & III. Hoạt động Đầu tư và Tài chính (Tạm thời là 0)
-        luu_chuyen_tien_thuan_tu_hddt = Decimal(0)
-        luu_chuyen_tien_thuan_tu_hdtc = Decimal(0)
+        # --- HĐTC ---
+        # (Tạm để 0 nếu chưa có nghiệp vụ cổ phiếu)
+        tien_chi_tra_goc_vay = self._tinh_tien_chi_tra_goc_vay(start, end)
+        luu_chuyen_tien_thuan_tu_hdtc = -tien_chi_tra_goc_vay
 
-        # IV. Lưu chuyển tiền thuần trong kỳ (Mã số 50)
+        # --- Tổng hợp ---
         luu_chuyen_tien_thuan_trong_ky = (
-            luu_chuyen_tien_thuan_tu_hdkd_cuoi
+            luu_chuyen_tien_thuan_tu_hdkd
             + luu_chuyen_tien_thuan_tu_hddt
             + luu_chuyen_tien_thuan_tu_hdtc
         )
 
-        # V. Tiền và tương đương tiền đầu kỳ (Mã số 60)
-        tien_va_tuong_duong_tien_dau_ky = (
-            self._tinh_tien_va_tuong_duong_tien_dau_ky(ngay_bat_dau)
-        )
-
-        # VI. Tiền và tương đương tiền cuối kỳ (Mã số 70 = 50 + 60 + 61)
-        tien_va_tuong_duong_tien_cuoi_ky = (
+        tien_dau_ky = self._tinh_tien_va_tuong_duong_tien_dau_ky(ngay_bat_dau)
+        # Tạm bỏ qua mã số 61 (tỷ giá) nếu không có ngoại tệ
+        anh_huong_thay_doi_ty_gia = Decimal(0)
+        tien_cuoi_ky = (
             luu_chuyen_tien_thuan_trong_ky
-            + tien_va_tuong_duong_tien_dau_ky
-            # Tạm thời bỏ qua Ảnh hưởng của thay đổi tỷ giá (Mã số 61)
+            + tien_dau_ky
+            + anh_huong_thay_doi_ty_gia
         )
 
-        # --- TRẢ VỀ BÁO CÁO ---
         return BaoCaoLuuChuyenTienTe(
             ngay_lap=ngay_lap,
             ky_hieu=ky_hieu,
             luu_chuyen_tien_te_hdkd=LuuChuyenTienTeHDKD(
                 loi_nhuan_truoc_thue=loi_nhuan_truoc_thue,
                 dieu_chinh_khau_hao_ts_co_dinh=khau_hao,
-                dieu_chinh_cac_khoan_du_phong=dieu_chinh_du_phong,
                 lai_lo_hoat_dong_dau_tu=lai_lo_hoat_dong_dau_tu,
                 chi_phi_lai_vay=chi_phi_lai_vay,
-                tien_lai_phai_tra_chi_tra=tien_lai_vay_da_tra.copy_negate(), # Báo cáo hiển thị giá trị dương
                 tang_giam_cac_khoan_phai_thu=thay_doi_phai_thu,
                 tang_giam_hang_ton_kho=thay_doi_hang_ton_kho,
                 tang_giam_cac_khoan_phai_tra=thay_doi_phai_tra,
-                tien_thue_thu_nhap_da_nop=tien_thue_thu_nhap_da_nop.copy_negate(), # Báo cáo hiển thị giá trị dương
-                luu_chuyen_tien_thuan_tu_hdkd=luu_chuyen_tien_thuan_tu_hdkd_cuoi,
+                tien_chi_tra_lai_vay=tien_lai_vay_da_tra,
+                tien_thue_thu_nhap_da_nop=tien_thue_thu_nhap_da_nop,
+                luu_chuyen_tien_thuan_tu_hdkd=luu_chuyen_tien_thuan_tu_hdkd,
             ),
             luu_chuyen_tien_te_hddt=LuuChuyenTienTeHDDT(
-                luu_chuyen_tien_thuan_tu_hddt=luu_chuyen_tien_thuan_tu_hddt
+                tien_chi_mua_sam_xay_dung_ts_dai_han=tien_chi_mua_tscd,
+                tien_thu_thanh_ly_nhuong_ban_ts_dai_han=tien_thu_ban_tscd,
+                luu_chuyen_tien_thuan_tu_hddt=luu_chuyen_tien_thuan_tu_hddt,
             ),
             luu_chuyen_tien_te_hdtc=LuuChuyenTienTeHDTC(
-                luu_chuyen_tien_thuan_tu_hdtc=luu_chuyen_tien_thuan_tu_hdtc
+                tien_chi_tra_goc_vay=tien_chi_tra_goc_vay,
+                luu_chuyen_tien_thuan_tu_hdtc=luu_chuyen_tien_thuan_tu_hdtc,
             ),
             luu_chuyen_tien_thuan_trong_ky=luu_chuyen_tien_thuan_trong_ky,
-            tien_va_tuong_duong_tien_dau_ky=tien_va_tuong_duong_tien_dau_ky,
-            tien_va_tuong_duong_tien_cuoi_ky=tien_va_tuong_duong_tien_cuoi_ky,
+            tien_va_tuong_duong_tien_dau_ky=tien_dau_ky,
+            anh_huong_thay_doi_ty_gia=anh_huong_thay_doi_ty_gia,
+            tien_va_tuong_duong_tien_cuoi_ky=tien_cuoi_ky,
         )

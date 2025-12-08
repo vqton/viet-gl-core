@@ -15,13 +15,134 @@ if not DATABASE_URL:
     )
 
 # (Bạn có thể thêm các biến cấu hình khác ở đây nếu cần sau này)
-from fastapi import FastAPI
+# main.py (đã bổ sung comments giải thích then chốt)
 
-from app.presentation.api.v1.accounting import router as accounting_router
+import logging
+import os
 
-app = FastAPI(title="Hệ thống kế toán TT99", version="1.0.0")
+from dotenv import load_dotenv
 
-app.include_router(accounting_router)
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError(
+        "Biến môi trường DATABASE_URL chưa được thiết lập trong file .env"
+    )
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+# Cơ sở hạ tầng & báo cáo
+from app.infrastructure.database import create_tables
+from app.presentation.api.v1.accounting.reports import router as reporting_router
+
+# Cấu hình ứng dụng FastAPI — tuân thủ TT99/2025/TT-BTC
+app = FastAPI(
+    title="Hệ thống Kế toán TT99",
+    version="1.0.0",
+    description="API tuân thủ Thông tư 99/2025/TT-BTC của Bộ Tài chính",
+    contact={
+        "name": "Đội phát triển hệ thống kế toán",
+        "email": "support@tt99-accounting.vn",
+    },
+    license_info={"name": "MIT"},
+)
+
+# CORS: Cho phép frontend gọi API (nếu có)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Đăng ký router báo cáo — nơi triển khai B01, B02, B03, B09 theo Phụ lục IV TT99
+app.include_router(reporting_router, prefix="/api/v1")
+
+
+# ---
+# XỬ LÝ NGOẠI LỆ TOÀN CỤC
+# [TT99 Điều 3] Yêu cầu kiểm soát nội bộ nghiêm ngặt → Không để lộ thông tin hệ thống ra client
+# ---
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+):
+    logging.warning(
+        f"Dữ liệu đầu vào không hợp lệ từ {request.url}: {exc.errors()}"
+    )
+    return JSONResponse(
+        status_code=400,
+        content={
+            "detail": "Dữ liệu đầu vào không hợp lệ",
+            "errors": exc.errors(),
+        },
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+):
+    logging.warning(
+        f"Lỗi HTTP {exc.status_code} tại {request.url}: {exc.detail}"
+    )
+    return JSONResponse(
+        status_code=exc.status_code, content={"detail": exc.detail}
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # Ghi log lỗi hệ thống — phục vụ audit nội bộ (TT99 Điều 3)
+    logging.error(
+        f"Lỗi hệ thống không mong muốn tại {request.url}: {exc}", exc_info=True
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Lỗi hệ thống. Vui lòng liên hệ quản trị viên."},
+    )
+
+
+# ---
+# KHỞI TẠO ỨNG DỤNG
+# [TT99 Điều 13] Yêu cầu mở sổ kế toán đầu kỳ → Tạo bảng DB nếu chưa tồn tại
+# ---
+@app.on_event("startup")
+def on_startup():
+    """
+    Khởi tạo cơ sở dữ liệu khi ứng dụng chạy.
+    - Tạo các bảng nếu chưa tồn tại (mô phỏng 'mở sổ kế toán' đầu kỳ theo TT99 Điều 13).
+    - Dừng ứng dụng nếu không thể kết nối DB — đảm bảo tính toàn vẹn dữ liệu báo cáo.
+    """
+    try:
+        logging.info("Đang khởi tạo cơ sở dữ liệu (mở sổ kế toán đầu kỳ)...")
+        create_tables()
+        logging.info("Khởi tạo thành công.")
+    except OperationalError as e:
+        logging.error(f"Không thể kết nối cơ sở dữ liệu: {e}")
+        raise RuntimeError(
+            "Lỗi khởi tạo cơ sở dữ liệu. Vui lòng kiểm tra DATABASE_URL."
+        )
+
+
+# ---
+# HEALTH CHECK
+# Dùng để giám sát hệ thống báo cáo tài chính — đảm bảo sẵn sàng khi đến kỳ khóa sổ.
+# ---
+@app.get("/health", summary="Kiểm tra trạng thái hệ thống")
+def health_check():
+    return {"status": "OK", "service": "Hệ thống Kế toán TT99"}
+
+
+@app.get("/", include_in_schema=False)
+def read_root():
+    return {"message": "Chào mừng đến với Hệ thống Kế toán TT99"}
 # app/application/services/accounting_periods/service_factory.py
 """
 Factory tạo các service nhỏ cho kỳ kế toán.
@@ -194,7 +315,7 @@ class ReportServiceFactory:
             journal_repo=self._je_repo,
             account_repo=self._acc_repo,
         )
-# app/application/factories/tai_khoan_service_factory.py
+# path: app/application/factories/tai_khoan_service_factory.py
 from app.application.interfaces.account_repo import AccountRepositoryInterface
 from app.application.interfaces.account_validator import TaiKhoanValidator
 from app.application.services.tai_khoan.create_service import (
@@ -229,7 +350,8 @@ class TaiKhoanServiceFactory:
         return CreateTaiKhoanService(repo=self.repo, validator=self.validator)
 
     def create_update_service(self) -> UpdateTaiKhoanService:
-        return UpdateTaiKhoanService(repo=self.repo)
+        # Inject validator cho Update Service
+        return UpdateTaiKhoanService(repo=self.repo, validator=self.validator)
 
     def create_delete_service(self) -> DeleteTaiKhoanService:
         return DeleteTaiKhoanService(repo=self.repo)
@@ -263,7 +385,7 @@ class AccountingPeriodServiceInterface(ABC):
         Lấy kỳ kế toán theo ngày.
         """
         pass
-# app/application/interfaces/account_repo.py
+# path: app/application/interfaces/account_repo.py
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -272,37 +394,91 @@ from app.domain.models.account import TaiKhoan
 
 class AccountRepositoryInterface(ABC):
     """
-    [DIP] Interface cho repository tài khoản.
-    Service không phụ thuộc vào implementation cụ thể.
+    Interface định nghĩa các thao tác CRUD và truy vấn cho Tài Khoản Kế Toán.
+
+    Đây là một phần của lớp Ứng dụng (Application Layer), cung cấp giao diện
+    để tương tác với dữ liệu Tài Khoản mà không quan tâm đến chi tiết
+    triển khai cơ sở dữ liệu (ví dụ: SQL, NoSQL, In-Memory).
     """
 
     @abstractmethod
     def add(self, tai_khoan: TaiKhoan) -> TaiKhoan:
+        """
+        Thêm một tài khoản mới vào hệ thống.
+
+        Args:
+            tai_khoan: Domain model TaiKhoan cần thêm.
+
+        Returns:
+            TaiKhoan: Tài khoản đã được thêm thành công (thường bao gồm ID được DB gán).
+        """
         pass
 
     @abstractmethod
     def get_by_id(self, so_tai_khoan: str) -> Optional[TaiKhoan]:
-        pass
+        """
+        Truy vấn một tài khoản bằng Số Tài Khoản.
 
-    @abstractmethod
-    def get_all(self) -> List[TaiKhoan]:
+        Args:
+            so_tai_khoan: Số tài khoản (primary key) cần tìm.
+
+        Returns:
+            Optional[TaiKhoan]: Domain model TaiKhoan nếu tìm thấy, ngược lại là None.
+        """
         pass
 
     @abstractmethod
     def update(self, tai_khoan: TaiKhoan) -> TaiKhoan:
+        """
+        Cập nhật thông tin một tài khoản hiện có.
+
+        Args:
+            tai_khoan: Domain model TaiKhoan với thông tin đã cập nhật.
+
+        Returns:
+            TaiKhoan: Tài khoản sau khi đã được cập nhật.
+
+        Raises:
+            ValueError: Nếu tài khoản không tồn tại.
+        """
         pass
 
     @abstractmethod
     def delete(self, so_tai_khoan: str) -> bool:
         """
-        Xóa tài khoản nếu không có giao dịch phát sinh.
+        Xóa một tài khoản bằng Số Tài Khoản.
+
+        Args:
+            so_tai_khoan: Số tài khoản cần xóa.
+
+        Returns:
+            bool: True nếu xóa thành công, False nếu tài khoản không tồn tại.
         """
         pass
 
     @abstractmethod
-    def has_transactions(self, so_tai_khoan: str) -> bool:
+    def get_all(self) -> List[TaiKhoan]:
         """
-        Kiểm tra tài khoản có phát sinh hay không (dùng cho xóa).
+        Lấy tất cả các tài khoản hiện có trong hệ thống.
+
+        Returns:
+            List[TaiKhoan]: Danh sách các Domain model TaiKhoan.
+        """
+        pass
+
+    @abstractmethod
+    def has_children(self, so_tai_khoan: str) -> bool:
+        """
+        Kiểm tra xem một tài khoản có tài khoản con (chi tiết) hay không.
+
+        Đây là quy tắc nghiệp vụ CỐT LÕI (Leaf Account Rule) theo TT99:
+        Nếu tài khoản CÓ con, nó là TK tổng hợp và KHÔNG được phép hạch toán.
+
+        Args:
+            so_tai_khoan: Số tài khoản cần kiểm tra.
+
+        Returns:
+            bool: True nếu tài khoản có tài khoản con, False nếu là tài khoản cấp cuối cùng (Leaf Account).
         """
         pass
 # app/application/interfaces/account_validator.py
@@ -366,6 +542,32 @@ class JournalEntryRepositoryInterface(ABC):
         """
         Lấy số dư đầu kỳ của một tài khoản cụ thể (Dư Nợ hoặc Dư Có) tại một ngày cho trước.
         Giá trị trả về luôn là số dương.
+        """
+        pass
+# path: app/application/interfaces/journal_entry_validator.py
+from abc import ABC, abstractmethod
+
+from app.domain.models.journal_entry import GhiSoKeToan
+
+
+class JournalEntryValidatorInterface(ABC):
+    """
+    Interface định nghĩa các phương thức xác thực bút toán kế toán.
+
+    Lớp này dùng để chứa các quy tắc nghiệp vụ phức tạp liên quan đến logic
+    hạch toán (ví dụ: Quy tắc đối ứng, tính hợp lệ của cặp Nợ/Có) theo TT99.
+    """
+
+    @abstractmethod
+    def validate(self, entry: GhiSoKeToan):
+        """
+        Thực hiện xác thực toàn bộ bút toán.
+
+        Args:
+            entry: Domain model GhiSoKeToan cần được xác thực.
+
+        Raises:
+            ValueError: Nếu bút toán vi phạm bất kỳ quy tắc nghiệp vụ nào.
         """
         pass
 # app/application/interfaces/period_repo.py
@@ -791,8 +993,9 @@ class ClosingJournalEntryService:
                 if line.so_tai_khoan == so_tai_khoan:
                     tong += line.no if loai_ps == "NO" else line.co
         return tong.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-# app/application/services/journaling/create_service.py
-import logging
+# path: app/application/services/journal_entries/create_service.py
+from decimal import Decimal
+from typing import Tuple
 
 from app.application.interfaces.account_repo import AccountRepositoryInterface
 from app.application.interfaces.journal_entry_repo import (
@@ -801,44 +1004,135 @@ from app.application.interfaces.journal_entry_repo import (
 from app.application.interfaces.period_repo import (
     AccountingPeriodRepositoryInterface,
 )
-from app.domain.models.journal_entry import JournalEntry
-
-logger = logging.getLogger(__name__)
+from app.domain.models.journal_entry import DetailObjectType, GhiSoKeToan
 
 
-class CreateJournalEntryService:
+class JournalEntryCreateService:
     """
-    [SRP] Chỉ chịu trách nhiệm tạo mới bút toán kế toán.
+    Service tạo mới một bút toán (Journal Entry).
+
+    Chịu trách nhiệm thực thi các quy tắc nghiệp vụ quan trọng theo TT99:
+    1. Kiểm tra tính cân bằng (Nợ = Có).
+    2. Kiểm tra kỳ kế toán đang mở.
+    3. Kiểm tra chỉ hạch toán vào tài khoản cấp cuối cùng (Leaf Account - Vấn đề 1 PM).
+    4. Kiểm tra Chi tiết Bắt buộc (Mandatory Detail Linkage - Vấn đề 2 PM).
     """
 
     def __init__(
         self,
-        journal_repo: JournalEntryRepositoryInterface,
+        journal_entry_repo: JournalEntryRepositoryInterface,
         account_repo: AccountRepositoryInterface,
-        period_service: AccountingPeriodRepositoryInterface,
+        period_repo: AccountingPeriodRepositoryInterface,
     ):
-        self.journal_repo = journal_repo
-        self.account_repo = account_repo
-        self.period_service = period_service
+        """
+        Khởi tạo JournalEntryCreateService.
 
-    def execute(self, entry: JournalEntry) -> JournalEntry:
-        # 1. Kiểm tra khóa sổ
-        self.period_service.check_if_period_is_locked(entry.ngay_ct)
+        Args:
+            journal_entry_repo: Repository để lưu trữ bút toán.
+            account_repo: Repository để truy vấn thông tin tài khoản.
+            period_repo: Repository để kiểm tra kỳ kế toán.
+        """
+        self._journal_entry_repo = journal_entry_repo
+        self._account_repo = account_repo
+        self._period_repo = period_repo
 
-        # 2. Kiểm tra tài khoản tồn tại
+    def execute(self, entry: GhiSoKeToan) -> GhiSoKeToan:
+        """
+        Thực thi việc tạo bút toán, kiểm tra tính cân bằng và tuân thủ các quy tắc TT99.
+
+        Args:
+            entry: Domain model GhiSoKeToan cần được ghi sổ.
+
+        Returns:
+            GhiSoKeToan: Bút toán đã được lưu thành công.
+
+        Raises:
+            ValueError: Nếu bút toán không hợp lệ (không cân bằng, sai kỳ, hoặc thiếu chi tiết).
+            Exception: Lỗi hệ thống khi lưu trữ.
+        """
+
+        # 1. Kiểm tra tính cân bằng (Tổng Nợ = Tổng Có)
+        total_debit, total_credit = self._calculate_totals(entry)
+
+        if total_debit != total_credit:
+            raise ValueError(
+                f"Bút toán không cân bằng. Tổng Nợ: {total_debit.quantize(Decimal('0.00'))} | Tổng Có: {total_credit.quantize(Decimal('0.00'))}"
+            )
+
+        # 2. Kiểm tra Kỳ Kế toán có đang Mở không
+        is_open = self._period_repo.is_date_in_open_period(entry.entry_date)
+        if not is_open:
+            raise ValueError(
+                f"Ngày ghi sổ ({entry.entry_date}) không nằm trong kỳ kế toán đang Mở. Không thể ghi sổ."
+            )
+
+        # 3. Kiểm tra các tài khoản và quy tắc chi tiết hóa TT99
         for line in entry.lines:
-            tai_khoan = self.account_repo.get_by_id(line.so_tai_khoan)
-            if not tai_khoan:
+            account = self._account_repo.get_by_id(line.account_number)
+
+            if not account:
                 raise ValueError(
-                    f"Tài khoản '{line.so_tai_khoan}' không tồn tại."
+                    f"Tài khoản '{line.account_number}' trong bút toán không tồn tại."
                 )
 
-        logger.info(
-            f"[TAO_BUT_TOAN] So phieu: {entry.so_phieu}, Ngay: {entry.ngay_ct}"
-        )
+            # Vấn đề 1 PM: Kiểm tra Leaf Account (Tài khoản cấp cuối cùng)
+            if self._account_repo.has_children(line.account_number):
+                raise ValueError(
+                    f"Tài khoản '{line.account_number}' là tài khoản tổng hợp. Vui lòng hạch toán vào tài khoản chi tiết (Leaf Account)."
+                )
 
-        entry.trang_thai = "Draft"
-        return self.journal_repo.add(entry)
+            # Vấn đề 2 PM: Kiểm tra Chi tiết Bắt buộc (Mandatory Detail Linkage)
+            required_types = account.required_detail_type
+            if required_types:
+                # Nếu Tài khoản yêu cầu chi tiết (required_types không rỗng)
+                if line.detail_object_id is None:
+                    # Bắt buộc phải có ID đối tượng
+                    required_names = [t.value for t in required_types]
+                    raise ValueError(
+                        f"Tài khoản '{line.account_number}' bắt buộc phải theo dõi chi tiết theo: {', '.join(required_names)}. Vui lòng cung cấp Mã đối tượng."
+                    )
+
+                # Bổ sung logic kiểm tra loại đối tượng (detail_object_type)
+                if line.detail_object_type not in required_types:
+                    # Bắt buộc loại đối tượng phải nằm trong danh sách yêu cầu
+                    raise ValueError(
+                        f"Tài khoản '{line.account_number}' yêu cầu loại chi tiết {required_types}, nhưng dòng bút toán cung cấp loại {line.detail_object_type.value}."
+                    )
+
+            # 3c. Kiểm tra số tiền
+            if line.amount <= Decimal(0):
+                raise ValueError("Số tiền trong dòng bút toán phải lớn hơn 0.")
+
+            if not line.so_chung_tu_goc or not line.ngay_chung_tu_goc:
+                raise ValueError(
+                    "Mọi bút toán phải có số và ngày chứng từ gốc theo TT99 Điều 10."
+                )
+        # 4. Lưu bút toán vào Repository (Database)
+        try:
+            saved_entry = self._journal_entry_repo.add(entry)
+            return saved_entry
+        except Exception as e:
+            # Xử lý lỗi lưu trữ
+            raise Exception(f"Không thể lưu bút toán do lỗi hệ thống: {e}")
+
+    def _calculate_totals(self, entry: GhiSoKeToan) -> Tuple[Decimal, Decimal]:
+        """
+        Tính tổng Nợ và tổng Có của bút toán để đảm bảo tính cân bằng.
+
+        Args:
+            entry: Domain model GhiSoKeToan.
+
+        Returns:
+            Tuple[Decimal, Decimal]: Tổng Nợ và Tổng Có.
+        """
+        total_debit = Decimal(0)
+        total_credit = Decimal(0)
+        for line in entry.lines:
+            if line.transaction_type.value == "Nợ":
+                total_debit += line.amount
+            elif line.transaction_type.value == "Có":
+                total_credit += line.amount
+        return total_debit, total_credit
 # app/application/services/journaling/posting_service.py
 """
 [SRP] Service chịu trách nhiệm ghi sổ (post) bút toán kế toán.
@@ -1059,6 +1353,46 @@ class CashFlowService:
     # PHƯƠNG THỨC NỀN TẢNG: TÍNH PHÁT SINH
     # --------------------------------------------------------
 
+    def _tinh_tien_chi_mua_tscd(self, start: date, end: date) -> Decimal:
+        """
+        Tính **Tiền chi mua sắm, xây dựng TSCĐ** (mã số II.21, B03-DN).
+
+        Bao gồm các khoản tiền mặt chi ra để mua TSCĐ hữu hình/vô hình:
+        - **Nợ TK 211, 213 (TSCĐ)**
+        - **Có TK 111, 112, 113 (Tiền)**
+
+        Args:
+            start (date): Ngày bắt đầu kỳ báo cáo.
+            end (date): Ngày kết thúc kỳ báo cáo.
+
+        Returns:
+            Decimal: Tổng tiền chi mua TSCĐ trong kỳ (luôn ≥ 0).
+
+        Note:
+            - Thuộc **Hoạt động đầu tư (HĐĐT)** → **giảm dòng tiền HĐĐT**.
+        """
+        all_entries = self.repo.get_all_posted_in_range(start, end)
+        tong_chi = Decimal(0)
+        for entry in all_entries:
+            lines_tien = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('111', '112', '113'))
+                and l.co > 0
+            ]
+            lines_tscd = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('211', '213')) and l.no > 0
+            ]
+            if lines_tien and lines_tscd:
+                so_tien = min(
+                    sum(l.co for l in lines_tien),
+                    sum(l.no for l in lines_tscd),
+                )
+                tong_chi += so_tien
+        return tong_chi
+
     def _tinh_phat_sinh_tai_khoan(
         self, tk: str, loai: str, bd: date, kt: date
     ) -> Decimal:
@@ -1130,9 +1464,9 @@ class CashFlowService:
             tong_dieu_chinh += self._tinh_phat_sinh_tai_khoan(
                 tk=tk, loai="CO", bd=start, kt=end
             )
-        
+
         # Bỏ qua chênh lệch tỷ giá chưa thực hiện (TK 413) để đơn giản hóa
-        
+
         return tong_dieu_chinh
 
     def _tinh_lai_lo_hoat_dong_dau_tu(self, start: date, end: date) -> Decimal:
@@ -1147,24 +1481,57 @@ class CashFlowService:
         lo_tai_chinh = self._tinh_phat_sinh_tai_khoan(
             tk="635", loai="NO", bd=start, kt=end
         )
-        
+
         lai_lo_rong = lai_tai_chinh - lo_tai_chinh
-        
+
         # Lãi ròng (dương) phải được ghi âm (để trừ khỏi LNTT)
         # Lỗ ròng (âm) phải được ghi dương (để cộng lại LNTT)
         return lai_lo_rong.copy_negate()
 
-    def _tinh_chi_phi_lai_vay(self, start: date, end: date) -> Decimal:
+    def _tinh_tien_lai_vay_da_tra(self, start: date, end: date) -> Decimal:
         """
-        I.05: Chi phí lãi vay (TK 635).
-        Cộng ngược toàn bộ chi phí lãi vay (PS Nợ TK 635) vào LNTT.
-        (Khoản này sẽ được trừ khi tính Tiền lãi vay đã trả ở I.06).
+        Tính **Tiền lãi vay đã trả thực tế** trong kỳ (mã số I.06, B03-DN).
+
+        Theo TT99/2025/TT-BTC, đây là khoản **tiền mặt chi ra** để trả lãi vay,
+        không phải chi phí lãi vay (635), do đó phải phân tích các bút toán:
+        - **Nợ TK 335 (Chi phí phải trả - lãi vay)** hoặc **341 (Vay)**
+        - **Có TK 111, 112, 113 (Tiền mặt/ngân hàng)**
+
+        Args:
+            start (date): Ngày bắt đầu kỳ báo cáo (bao gồm).
+            end (date): Ngày kết thúc kỳ báo cáo (bao gồm).
+
+        Returns:
+            Decimal: Tổng tiền lãi vay đã trả thực tế trong kỳ (luôn ≥ 0).
+
+        Note:
+            - Giá trị này được **ghi dương** trong báo cáo nhưng **trừ khỏi dòng tiền HĐKD**.
+            - Nếu không có bút toán trả lãi, trả về 0.
         """
-        # PS Nợ TK 635 - Chi phí lãi vay (cần cộng ngược)
-        chi_phi_lai_vay = self._tinh_phat_sinh_tai_khoan(
-            tk="635", loai="NO", bd=start, kt=end
-        )
-        return chi_phi_lai_vay
+        all_entries = self.repo.get_all_posted_in_range(start, end)
+        tong_tien_tra_lai = Decimal(0)
+
+        for entry in all_entries:
+            lines_tien = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('111', '112', '113'))
+                and l.co > 0
+            ]
+            lines_lai_vay = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan in ('335', '341') and l.no > 0
+            ]
+
+            if lines_tien and lines_lai_vay:
+                so_tien = min(
+                    sum(l.co for l in lines_tien),
+                    sum(l.no for l in lines_lai_vay),
+                )
+                tong_tien_tra_lai += so_tien
+
+        return tong_tien_tra_lai
 
     def _tinh_thay_doi_tai_san_phai_thu(
         self, start: date, end: date
@@ -1208,7 +1575,7 @@ class CashFlowService:
 
         # Nếu tổng tăng ròng là dương (tăng HTK), thì phải trả về giá trị âm (trừ khỏi dòng tiền)
         return tong_tang_rong.copy_negate()
-    
+
     def _tinh_thay_doi_no_phai_tra(self, start: date, end: date) -> Decimal:
         """
         I.09: Tăng/giảm các khoản phải trả (trừ lãi vay, thuế TNDN) (TK 33x...).
@@ -1240,32 +1607,61 @@ class CashFlowService:
         # Tạm tính đơn giản: Giả định lãi vay được ghi nhận qua bút toán Nợ 635 / Có 335, 341
         # và thanh toán bằng bút toán Nợ 335, 341 / Có 11x.
         # Ta lấy PS Nợ của TK 335 (CP phải trả), 341 (Vay, nợ thuê tài chính)
-        
+
         # Logic phức tạp: Phải tìm các bút toán có Có TK Tiền (111, 112, 113) và Nợ TK chi phí lãi vay (VD: 335/341)
         # Tạm thời chỉ mock 0 cho I.06 và chỉ tính I.05 (Chi phí lãi vay)
-        
+
         # Nếu áp dụng phương pháp Gián tiếp, ta chỉ cần Lãi vay phải trả/đã trả ở I.06 (Phần Tiền chi ra)
         # Tiền lãi vay đã trả = PS Nợ TK 635 (CP lãi vay) - Chênh lệch số dư TK 335 (Lãi vay phải trả)
         # Giả sử: tiền lãi vay đã trả = Chi phí lãi vay (I.05) - (PS Có 335 - PS Nợ 335)
-        
+
         # Tạm thời trả về 0 cho I.06 và chỉ tính I.05 (Chi phí lãi vay)
         return Decimal(0)
 
-    def _tinh_tien_thue_thu_nhap_da_nop(self, start: date, end: date) -> Decimal:
+    def _tinh_tien_thue_thu_nhap_da_nop(
+        self, start: date, end: date
+    ) -> Decimal:
         """
-        I.10: Tiền thuế thu nhập doanh nghiệp đã nộp (TK 3334).
-        Tính tổng tiền chi ra để nộp thuế TNDN (Luôn là giá trị âm).
-        Dựa vào PS Nợ TK 3334 (giảm thuế phải nộp) đối ứng với TK Tiền (11x).
-        """
-        # Tính tổng PS Nợ TK 3334 (giảm Nợ phải trả về Thuế)
-        ps_no_3334 = self._tinh_phat_sinh_tai_khoan(
-            tk=TK_THUE_TNDN[0], loai="NO", bd=start, kt=end
-        )
-        
-        # Giả định PS Nợ TK 3334 chủ yếu là tiền nộp thuế
-        # Khoản này luôn là chi tiền (giảm dòng tiền) nên phải là giá trị âm.
-        return ps_no_3334.copy_negate()
+        Tính **Tiền thuế TNDN đã nộp thực tế** trong kỳ (mã số I.10, B03-DN).
 
+        Theo TT99, đây là khoản **tiền mặt chi ra** để nộp thuế TNDN,
+        phản ánh từ các bút toán:
+        - **Nợ TK 3334 (Thuế TNDN phải nộp)**
+        - **Có TK 111, 112, 113 (Tiền)**
+
+        Args:
+            start (date): Ngày bắt đầu kỳ báo cáo.
+            end (date): Ngày kết thúc kỳ báo cáo.
+
+        Returns:
+            Decimal: Tổng tiền thuế TNDN đã nộp trong kỳ (luôn ≥ 0).
+
+        Note:
+            - Giá trị này được **ghi dương** trong báo cáo nhưng **trừ khỏi dòng tiền HĐKD**.
+            - Chỉ tính các bút toán đã **ghi sổ (Posted)**.
+        """
+        all_entries = self.repo.get_all_posted_in_range(start, end)
+        tong_thue_nop = Decimal(0)
+
+        for entry in all_entries:
+            lines_tien = [
+                l
+                for l in entry.lines
+                if l.so_tai_khoan.startswith(('111', '112', '113'))
+                and l.co > 0
+            ]
+            lines_thue = [
+                l for l in entry.lines if l.so_tai_khoan == '3334' and l.no > 0
+            ]
+
+            if lines_tien and lines_thue:
+                so_tien = min(
+                    sum(l.co for l in lines_tien),
+                    sum(l.no for l in lines_thue),
+                )
+                tong_thue_nop += so_tien
+
+        return tong_thue_nop
 
     # --------------------------------------------------------
     # V. CHỈ TIÊU TIỀN VÀ TƯƠNG ĐƯƠNG TIỀN ĐẦU KỲ (Mã số 60)
@@ -1300,142 +1696,123 @@ class CashFlowService:
         ngay_ket_thuc: date,
     ) -> BaoCaoLuuChuyenTienTe:
         """
-        Tính và tạo Báo cáo Lưu chuyển Tiền tệ (B03-DN) - Phương pháp Gián tiếp.
+        Lập **Báo cáo Lưu chuyển Tiền tệ (B03-DN)** theo phương pháp gián tiếp,
+        tuân thủ đầy đủ cấu trúc và nội dung theo **Phụ lục IV – TT99/2025/TT-BTC**.
+
+        Báo cáo bao gồm 3 phần:
+        1. Lưu chuyển tiền từ **Hoạt động kinh doanh (HĐKD)**
+        2. Lưu chuyển tiền từ **Hoạt động đầu tư (HĐĐT)**
+        3. Lưu chuyển tiền từ **Hoạt động tài chính (HĐTC)**
+
+        Args:
+            ky_hieu (str): Ký hiệu kỳ báo cáo (VD: "Năm 2025", "Q4-2025").
+            ngay_lap (date): Ngày lập báo cáo.
+            ngay_bat_dau (date): Ngày bắt đầu kỳ (bao gồm).
+            ngay_ket_thuc (date): Ngày kết thúc kỳ (bao gồm).
+
+        Returns:
+            BaoCaoLuuChuyenTienTe: Báo cáo B03-DN đã được tính toán đầy đủ.
+
+        Raises:
+            ValueError: Nếu dữ liệu báo cáo B02-DN không hợp lệ (từ PerformanceService).
+            Exception: Nếu có lỗi trong quá trình truy vấn dữ liệu.
+
+        Note:
+            - **I.06 (Tiền lãi vay đã trả)** và **I.10 (Tiền thuế TNDN đã nộp)** được tính
+            dựa trên **dòng tiền thực chi**, không phải chi phí kế toán.
+            - Báo cáo **phải đảm bảo cân đối**:
+            `Tiền cuối kỳ = Lưu chuyển thuần trong kỳ + Tiền đầu kỳ`
         """
-        start = ngay_bat_dau
-        end = ngay_ket_thuc
+        start, end = ngay_bat_dau, ngay_ket_thuc
 
-        # --- TÍNH TOÁN HOẠT ĐỘNG KINH DOANH (I) ---
-
-        # I.01: Lợi nhuận trước thuế
+        # --- HĐKD (gián tiếp) ---
         loi_nhuan_truoc_thue = self._tinh_loi_nhuan_truoc_thue(
             ky_hieu, ngay_lap, start, end
         )
-
-        # I.02: Khấu hao tài sản cố định
         khau_hao = self._tinh_dieu_chinh_khau_hao_ts_co_dinh(start, end)
-        
-        # I.03: Dự phòng và tỷ giá chưa thực hiện (Điều chỉnh gộp)
-        dieu_chinh_du_phong = self._tinh_dieu_chinh_du_phong_va_ty_gia(start, end)
-
-        # I.04: Lãi, lỗ từ hoạt động đầu tư (Điều chỉnh gộp)
-        lai_lo_hoat_dong_dau_tu = self._tinh_lai_lo_hoat_dong_dau_tu(start, end)
-
-        # I.05: Chi phí lãi vay (Cộng ngược)
-        chi_phi_lai_vay = self._tinh_chi_phi_lai_vay(start, end)
-        
-        # I.06: Tiền lãi vay đã trả (Tạm thời là 0)
-        tien_lai_vay_da_tra = self._tinh_tien_lai_vay_da_tra(start, end)
-        
-        # I.07: Tăng/giảm các khoản phải thu
-        thay_doi_phai_thu = self._tinh_thay_doi_tai_san_phai_thu(start, end)
-        
-        # I.08: Tăng/giảm Hàng tồn kho
-        thay_doi_hang_ton_kho = self._tinh_thay_doi_hang_ton_kho(start, end)
-
-        # I.09: Tăng/giảm các khoản phải trả
-        thay_doi_phai_tra = self._tinh_thay_doi_no_phai_tra(start, end)
-        
-        # I.10: Tiền thuế thu nhập doanh nghiệp đã nộp
-        tien_thue_thu_nhap_da_nop = self._tinh_tien_thue_thu_nhap_da_nop(start, end)
-
-
-        # I.20: LƯU CHUYỂN TIỀN THUẦN TỪ HĐKD (Tổng hợp) - Mã số 20
-        # NOTE: tien_lai_vay_da_tra (I.06) và tien_thue_thu_nhap_da_nop (I.10) luôn là giá trị âm (chi tiền)
-        luu_chuyen_tien_thuan_tu_hdkd = (
-            loi_nhuan_truoc_thue                  # I.01
-            + khau_hao                            # I.02
-            + dieu_chinh_du_phong                 # I.03
-            + lai_lo_hoat_dong_dau_tu             # I.04 (Đã đảo dấu: Lãi -> Âm, Lỗ -> Dương)
-            + chi_phi_lai_vay                     # I.05 (Cộng ngược CP lãi vay)
-            + thay_doi_phai_thu                   # I.07 (Đã đảo dấu: Tăng PT -> Âm)
-            + thay_doi_hang_ton_kho               # I.08 (Đã đảo dấu: Tăng HTK -> Âm)
-            + thay_doi_phai_tra                   # I.09
-            + tien_lai_vay_da_tra                 # I.06 (Phần chi ra, nên cộng giá trị âm)
-            + tien_thue_thu_nhap_da_nop           # I.10 (Phần chi ra, nên cộng giá trị âm)
+        lai_lo_hoat_dong_dau_tu = self._tinh_lai_lo_hoat_dong_dau_tu(
+            start, end
         )
-        
-        # Tiền lãi vay đã trả và Tiền thuế TNDN đã nộp được tính riêng ở dưới (Mã số 21 và 22)
-        # Tính lại cho đúng công thức tổng hợp:
-        tong_dieu_chinh_truoc_thue = (
-             khau_hao 
-            + dieu_chinh_du_phong
+        chi_phi_lai_vay = self._tinh_chi_phi_lai_vay(start, end)
+        thay_doi_phai_thu = self._tinh_thay_doi_tai_san_phai_thu(start, end)
+        thay_doi_hang_ton_kho = self._tinh_thay_doi_hang_ton_kho(start, end)
+        thay_doi_phai_tra = self._tinh_thay_doi_no_phai_tra(start, end)
+
+        tien_lai_vay_da_tra = self._tinh_tien_lai_vay_da_tra(start, end)
+        tien_thue_thu_nhap_da_nop = self._tinh_tien_thue_thu_nhap_da_nop(
+            start, end
+        )
+
+        luu_chuyen_hdkd = (
+            loi_nhuan_truoc_thue
+            + khau_hao
             + lai_lo_hoat_dong_dau_tu
             + chi_phi_lai_vay
             + thay_doi_phai_thu
             + thay_doi_hang_ton_kho
             + thay_doi_phai_tra
         )
-        
-        luu_chuyen_tien_thuan_tu_hdkd_ms20 = (
-            loi_nhuan_truoc_thue
-            + tong_dieu_chinh_truoc_thue
-        )
-        
-        # TÍNH LƯU CHUYỂN TIỀN THUẦN TỪ HĐKD (Mã số 20)
-        # Mã số 20 = Mã số 10 + Mã số 11 + Mã số 12
-        # Mã số 10 = Mã số 01 + ... + Mã số 09
-        # Mã số 11 = Tiền lãi vay đã trả (I.06)
-        # Mã số 12 = Thuế TNDN đã nộp (I.10)
-        
-        # I.20: Lưu chuyển tiền thuần từ HĐKD
-        # Ta lấy Mã số 10 + I.06 + I.10
-        luu_chuyen_tien_thuan_tu_hdkd_cuoi = (
-            luu_chuyen_tien_thuan_tu_hdkd_ms20
-            + tien_lai_vay_da_tra           # I.06 (Luôn là giá trị âm)
-            + tien_thue_thu_nhap_da_nop     # I.10 (Luôn là giá trị âm)
+        # Lưu ý: I.06 và I.10 **không cộng vào luồng điều chỉnh**, mà là **dòng riêng**,
+        # nhưng **tổng hợp vào luồng cuối** qua phép cộng với giá trị âm
+        luu_chuyen_tien_thuan_tu_hdkd = (
+            luu_chuyen_hdkd - tien_lai_vay_da_tra - tien_thue_thu_nhap_da_nop
         )
 
+        # --- HĐĐT ---
+        tien_chi_mua_tscd = self._tinh_tien_chi_mua_tscd(start, end)
+        tien_thu_ban_tscd = self._tinh_tien_thu_ban_tscd(start, end)
+        # (Các chỉ tiêu khác tạm để 0 nếu chưa có nghiệp vụ)
+        luu_chuyen_tien_thuan_tu_hddt = -tien_chi_mua_tscd + tien_thu_ban_tscd
 
-        # II & III. Hoạt động Đầu tư và Tài chính (Tạm thời là 0)
-        luu_chuyen_tien_thuan_tu_hddt = Decimal(0)
-        luu_chuyen_tien_thuan_tu_hdtc = Decimal(0)
+        # --- HĐTC ---
+        # (Tạm để 0 nếu chưa có nghiệp vụ cổ phiếu)
+        tien_chi_tra_goc_vay = self._tinh_tien_chi_tra_goc_vay(start, end)
+        luu_chuyen_tien_thuan_tu_hdtc = -tien_chi_tra_goc_vay
 
-        # IV. Lưu chuyển tiền thuần trong kỳ (Mã số 50)
+        # --- Tổng hợp ---
         luu_chuyen_tien_thuan_trong_ky = (
-            luu_chuyen_tien_thuan_tu_hdkd_cuoi
+            luu_chuyen_tien_thuan_tu_hdkd
             + luu_chuyen_tien_thuan_tu_hddt
             + luu_chuyen_tien_thuan_tu_hdtc
         )
 
-        # V. Tiền và tương đương tiền đầu kỳ (Mã số 60)
-        tien_va_tuong_duong_tien_dau_ky = (
-            self._tinh_tien_va_tuong_duong_tien_dau_ky(ngay_bat_dau)
-        )
-
-        # VI. Tiền và tương đương tiền cuối kỳ (Mã số 70 = 50 + 60 + 61)
-        tien_va_tuong_duong_tien_cuoi_ky = (
+        tien_dau_ky = self._tinh_tien_va_tuong_duong_tien_dau_ky(ngay_bat_dau)
+        # Tạm bỏ qua mã số 61 (tỷ giá) nếu không có ngoại tệ
+        anh_huong_thay_doi_ty_gia = Decimal(0)
+        tien_cuoi_ky = (
             luu_chuyen_tien_thuan_trong_ky
-            + tien_va_tuong_duong_tien_dau_ky
-            # Tạm thời bỏ qua Ảnh hưởng của thay đổi tỷ giá (Mã số 61)
+            + tien_dau_ky
+            + anh_huong_thay_doi_ty_gia
         )
 
-        # --- TRẢ VỀ BÁO CÁO ---
         return BaoCaoLuuChuyenTienTe(
             ngay_lap=ngay_lap,
             ky_hieu=ky_hieu,
             luu_chuyen_tien_te_hdkd=LuuChuyenTienTeHDKD(
                 loi_nhuan_truoc_thue=loi_nhuan_truoc_thue,
                 dieu_chinh_khau_hao_ts_co_dinh=khau_hao,
-                dieu_chinh_cac_khoan_du_phong=dieu_chinh_du_phong,
                 lai_lo_hoat_dong_dau_tu=lai_lo_hoat_dong_dau_tu,
                 chi_phi_lai_vay=chi_phi_lai_vay,
-                tien_lai_phai_tra_chi_tra=tien_lai_vay_da_tra.copy_negate(), # Báo cáo hiển thị giá trị dương
                 tang_giam_cac_khoan_phai_thu=thay_doi_phai_thu,
                 tang_giam_hang_ton_kho=thay_doi_hang_ton_kho,
                 tang_giam_cac_khoan_phai_tra=thay_doi_phai_tra,
-                tien_thue_thu_nhap_da_nop=tien_thue_thu_nhap_da_nop.copy_negate(), # Báo cáo hiển thị giá trị dương
-                luu_chuyen_tien_thuan_tu_hdkd=luu_chuyen_tien_thuan_tu_hdkd_cuoi,
+                tien_chi_tra_lai_vay=tien_lai_vay_da_tra,
+                tien_thue_thu_nhap_da_nop=tien_thue_thu_nhap_da_nop,
+                luu_chuyen_tien_thuan_tu_hdkd=luu_chuyen_tien_thuan_tu_hdkd,
             ),
             luu_chuyen_tien_te_hddt=LuuChuyenTienTeHDDT(
-                luu_chuyen_tien_thuan_tu_hddt=luu_chuyen_tien_thuan_tu_hddt
+                tien_chi_mua_sam_xay_dung_ts_dai_han=tien_chi_mua_tscd,
+                tien_thu_thanh_ly_nhuong_ban_ts_dai_han=tien_thu_ban_tscd,
+                luu_chuyen_tien_thuan_tu_hddt=luu_chuyen_tien_thuan_tu_hddt,
             ),
             luu_chuyen_tien_te_hdtc=LuuChuyenTienTeHDTC(
-                luu_chuyen_tien_thuan_tu_hdtc=luu_chuyen_tien_thuan_tu_hdtc
+                tien_chi_tra_goc_vay=tien_chi_tra_goc_vay,
+                luu_chuyen_tien_thuan_tu_hdtc=luu_chuyen_tien_thuan_tu_hdtc,
             ),
             luu_chuyen_tien_thuan_trong_ky=luu_chuyen_tien_thuan_trong_ky,
-            tien_va_tuong_duong_tien_dau_ky=tien_va_tuong_duong_tien_dau_ky,
-            tien_va_tuong_duong_tien_cuoi_ky=tien_va_tuong_duong_tien_cuoi_ky,
+            tien_va_tuong_duong_tien_dau_ky=tien_dau_ky,
+            anh_huong_thay_doi_ty_gia=anh_huong_thay_doi_ty_gia,
+            tien_va_tuong_duong_tien_cuoi_ky=tien_cuoi_ky,
         )
 # app/application/services/reports/disclosure_service.py
 """
@@ -1469,6 +1846,7 @@ class DisclosureService:
 [SRP] Service chịu trách nhiệm tính toán Báo cáo tình hình tài chính (B01-DN) theo TT99/2025/TT-BTC.
 Phụ lục IV: Mẫu B01-DN.
 """
+
 import logging
 from datetime import date
 from decimal import Decimal
@@ -1510,7 +1888,7 @@ class FinancialPositionService:
 
         def get_balance(so_tai_khoan_goc: str) -> Decimal:
             """Hàm tính Số dư cuối kỳ (Số dư Nợ - Số dư Có) cho TK Tài sản,
-               và (Số dư Có - Số dư Nợ) cho TK Nguồn vốn."""
+            và (Số dư Có - Số dư Nợ) cho TK Nguồn vốn."""
             tong_no = Decimal(0)
             tong_co = Decimal(0)
             for so_tai_khoan, (sd_no, sd_co) in account_balances.items():
@@ -1530,10 +1908,10 @@ class FinancialPositionService:
             if not tai_khoan_goc:
                 # Nếu không tìm thấy TK gốc, cố gắng xác định loại qua đầu số
                 first_digit = so_tai_khoan_goc[0]
-                if first_digit in "12": # Tài sản
+                if first_digit in "12":  # Tài sản
                     net_balance = tong_no - tong_co
                     return abs(net_balance).quantize(Decimal("0.01"))
-                elif first_digit in "34": # Nguồn vốn
+                elif first_digit in "34":  # Nguồn vốn
                     net_balance = tong_co - tong_no
                     return abs(net_balance).quantize(Decimal("0.01"))
                 return Decimal(0)
@@ -1565,12 +1943,16 @@ class FinancialPositionService:
             hang_ton_kho=get_balance("156"),
             tai_san_ngan_han_khac=get_balance("150"),
             # Tổng Tài sản Ngắn hạn (Mã số 100)
-            tong_tai_san_ngan_han=tien_va_tg_tien + get_balance("121") + get_balance("131") + get_balance("156") + get_balance("150"),
+            tong_tai_san_ngan_han=tien_va_tg_tien
+            + get_balance("121")
+            + get_balance("131")
+            + get_balance("156")
+            + get_balance("150"),
         )
 
         # Tính Tài sản Dài hạn (II)
         tai_san_co_dinh_huu_hinh = get_balance("211") - get_balance("214")
-        
+
         tai_san_dai_han = TaiSanDaiHan(
             tai_san_co_dinh_huu_hinh=tai_san_co_dinh_huu_hinh,
             tai_san_co_dinh_vo_hinh=get_balance("221"),
@@ -1578,14 +1960,19 @@ class FinancialPositionService:
             cac_khoan_dau_tu_tc_dai_han=get_balance("221"),
             tai_san_dai_han_khac=get_balance("241"),
             # Tổng Tài sản Dài hạn (Mã số 200)
-            tong_tai_san_dai_han=tai_san_co_dinh_huu_hinh + get_balance("221") + get_balance("217") + get_balance("221") + get_balance("241"),
+            tong_tai_san_dai_han=tai_san_co_dinh_huu_hinh
+            + get_balance("221")
+            + get_balance("217")
+            + get_balance("221")
+            + get_balance("241"),
         )
 
         # Tổng Tài sản (Mã số 270)
         tong_tai_san = TongTaiSan(
             tai_san_ngan_han=tai_san_ngan_han,
             tai_san_dai_han=tai_san_dai_han,
-            tong_cong_tai_san=tai_san_ngan_han.tong_tai_san_ngan_han + tai_san_dai_han.tong_tai_san_dai_han,
+            tong_cong_tai_san=tai_san_ngan_han.tong_tai_san_ngan_han
+            + tai_san_dai_han.tong_tai_san_dai_han,
         )
 
         # Tính nguồn vốn - Nợ Phải trả Ngắn hạn (A)
@@ -1595,7 +1982,10 @@ class FinancialPositionService:
             thue_va_cac_khoan_phai_nop_nha_nuoc=get_balance("333"),
             phai_tra_ngan_han_khac=get_balance("338"),
             # Tổng Nợ Ngắn hạn (Mã số 300)
-            tong_no_ngan_han=get_balance("341") + get_balance("331") + get_balance("333") + get_balance("338"),
+            tong_no_ngan_han=get_balance("341")
+            + get_balance("331")
+            + get_balance("333")
+            + get_balance("338"),
         )
 
         # Tính nguồn vốn - Nợ Phải trả Dài hạn (B)
@@ -1655,20 +2045,32 @@ class FinancialPositionService:
                 tk.so_tai_khoan, start, end
             )
             # Lưu trữ Số dư Cuối kỳ Nợ và Có
-            balances[tk.so_tai_khoan] = (sd_ck_no, sd_ck_co) 
+            balances[tk.so_tai_khoan] = (sd_ck_no, sd_ck_co)
         return balances
-"""
-[SRP] Service cho Bản thuyết minh BCTC (B09-DN).
-"""
+# app/application/services/reports/performance_service.py
 from datetime import date
+from decimal import Decimal
+from typing import List
+from app.application.interfaces.journal_entry_repo import (
+    JournalEntryRepositoryInterface,
+)
+from app.domain.models.report import BaoCaoKetQuaHDKD
 
-from app.application.interfaces.report_repo import ReportRepositoryInterface
-from app.domain.models.report import BaoCaoThuyetMinh
 
-
-class DisclosureService:
-    def __init__(self, repo: ReportRepositoryInterface):
+class PerformanceService:
+    def __init__(self, repo: JournalEntryRepositoryInterface, acc_repo=None):
         self.repo = repo
+        # acc_repo không dùng trong B02, nhưng giữ để tương thích DI
+
+    def _tinh_phat_sinh(
+        self, tk: str, loai: str, start: date, end: date
+    ) -> Decimal:
+        ps = Decimal(0)
+        for entry in self.repo.get_all_posted_in_range(start, end):
+            for line in entry.lines:
+                if line.so_tai_khoan.startswith(tk):
+                    ps += line.no if loai == "NO" else line.co
+        return ps
 
     def lay_bao_cao(
         self,
@@ -1676,16 +2078,62 @@ class DisclosureService:
         ngay_lap: date,
         ngay_bat_dau: date,
         ngay_ket_thuc: date,
-    ) -> BaoCaoThuyetMinh:
-        # Trong thực tế, service này sẽ tổng hợp thông tin chi tiết từ các báo cáo khác (B01, B02, B03)
-        # và các thông tin định tính khác để lập Bản Thuyết minh BCTC.
-        # Ở đây, ta chỉ cung cấp một khung sườn.
-        return BaoCaoThuyetMinh(
+    ) -> BaoCaoKetQuaHDKD:
+        start, end = ngay_bat_dau, ngay_ket_thuc
+
+        # 1. Doanh thu bán hàng (511)
+        doanh_thu_ban_hang = self._tinh_phat_sinh("511", "CO", start, end)
+        # 2. Giảm trừ (521: chiết khấu, giảm giá, hàng trả lại)
+        giam_tru = self._tinh_phat_sinh("521", "NO", start, end)
+        doanh_thu_thuan = doanh_thu_ban_hang - giam_tru
+
+        # 3. Giá vốn (632)
+        gia_von = self._tinh_phat_sinh("632", "NO", start, end)
+        loi_nhuan_gop = doanh_thu_thuan - gia_von
+
+        # 4. Chi phí tài chính (635)
+        chi_phi_tc = self._tinh_phat_sinh("635", "NO", start, end)
+        # 5. Chi phí bán hàng (641)
+        chi_phi_bh = self._tinh_phat_sinh("641", "NO", start, end)
+        # 6. Chi phí QLDN (642)
+        chi_phi_qldn = self._tinh_phat_sinh("642", "NO", start, end)
+        loi_nhuan_thuan = (
+            loi_nhuan_gop - chi_phi_tc - chi_phi_bh - chi_phi_qldn
+        )
+
+        # 7. Thu nhập khác (711)
+        thu_nhap_khac = self._tinh_phat_sinh("711", "CO", start, end)
+        # 8. Chi phí khác (811)
+        chi_phi_khac = self._tinh_phat_sinh("811", "NO", start, end)
+        loi_nhuan_khac = thu_nhap_khac - chi_phi_khac
+
+        tong_loi_nhuan_truoc_thue = loi_nhuan_thuan + loi_nhuan_khac
+        # 9. Thuế TNDN (821)
+        thue_hien_hanh = self._tinh_phat_sinh("821", "NO", start, end)
+        thue_hoan_lai = Decimal(0)  # temporarily
+        loi_nhuan_sau_thue = (
+            tong_loi_nhuan_truoc_thue - thue_hien_hanh - thue_hoan_lai
+        )
+
+        return BaoCaoKetQuaHDKD(
             ngay_lap=ngay_lap,
             ky_hieu=ky_hieu,
-            chuan_muc_ke_toan_ap_dung="VAS và Thông tư 200/2014/TT-BTC",
-            noi_dung_chinh="Các chính sách kế toán quan trọng, thông tin bổ sung cho B01, B02, B03.",
-            # ... (Thêm các trường dữ liệu chi tiết cho thuyết minh) ...
+            doanh_thu_ban_hang=doanh_thu_ban_hang,
+            cac_khoan_giam_tru_doanh_thu=giam_tru,
+            doanh_thu_thuan=doanh_thu_thuan,
+            gia_von_hang_ban=gia_von,
+            loi_nhuan_gop=loi_nhuan_gop,
+            chi_phi_tai_chinh=chi_phi_tc,
+            chi_phi_ban_hang=chi_phi_bh,
+            chi_phi_quan_ly_doanh_nghiep=chi_phi_qldn,
+            loi_nhuan_thuan_tu_hdkd=loi_nhuan_thuan,
+            thu_nhap_khac=thu_nhap_khac,
+            chi_phi_khac=chi_phi_khac,
+            loi_nhuan_khac=loi_nhuan_khac,
+            tong_loi_nhuan_truoc_thue=tong_loi_nhuan_truoc_thue,
+            chi_phi_thue_thu_nhap_doanh_nghiep_hien_hanh=thue_hien_hanh,
+            chi_phi_thue_thu_nhap_doanh_nghiep_hoan_lai=thue_hoan_lai,
+            loi_nhuan_sau_thue=loi_nhuan_sau_thue,
         )
 # app/application/services/tai_khoan/create_service.py
 import logging
@@ -1785,8 +2233,9 @@ class QueryTaiKhoanService:
 
     def lay_tat_ca_tai_khoan(self) -> List[TaiKhoan]:
         return self.repo.get_all()
-# app/application/services/tai_khoan/update_service.py
+# path: app/application/services/tai_khoan/update_service.py
 from app.application.interfaces.account_repo import AccountRepositoryInterface
+from app.application.interfaces.account_validator import TaiKhoanValidator
 from app.domain.models.account import TaiKhoan
 
 
@@ -1795,11 +2244,33 @@ class UpdateTaiKhoanService:
     [SRP] Chỉ chịu trách nhiệm cập nhật tài khoản kế toán.
     """
 
-    def __init__(self, repo: AccountRepositoryInterface):
+    def __init__(
+        self,
+        repo: AccountRepositoryInterface,
+        validator: TaiKhoanValidator = None,
+    ):
         self.repo = repo
+        self.validator = validator  # Thêm validator
 
     def execute(self, tai_khoan_moi: TaiKhoan) -> TaiKhoan:
-        # 1. Kiểm tra tài khoản cha (nếu là cấp con)
+        """
+        Thực thi việc cập nhật Tài khoản.
+
+        Args:
+            tai_khoan_moi: Domain model TaiKhoan với thông tin đã cập nhật.
+
+        Returns:
+            TaiKhoan: Tài khoản sau khi đã được cập nhật.
+
+        Raises:
+            ValueError: Nếu Tài khoản không hợp lệ hoặc Tài khoản cha không tồn tại.
+        """
+
+        # 1. Xác thực (Quy tắc Cốt lõi)
+        if self.validator:
+            self.validator.validate(tai_khoan_moi)
+
+        # 2. Kiểm tra nghiệp vụ phối hợp: Tài khoản cha phải tồn tại (nếu có)
         if tai_khoan_moi.cap_tai_khoan > 1 and tai_khoan_moi.so_tai_khoan_cha:
             cha = self.repo.get_by_id(tai_khoan_moi.so_tai_khoan_cha)
             if not cha:
@@ -1807,7 +2278,13 @@ class UpdateTaiKhoanService:
                     f"Tài khoản cha '{tai_khoan_moi.so_tai_khoan_cha}' không tồn tại."
                 )
 
-        # 2. Gọi repo để cập nhật
+        # 3. Kiểm tra Tài khoản có tồn tại để cập nhật không
+        if not self.repo.get_by_id(tai_khoan_moi.so_tai_khoan):
+            raise ValueError(
+                f"Tài khoản cần cập nhật '{tai_khoan_moi.so_tai_khoan}' không tồn tại."
+            )
+
+        # 4. Gọi repo để cập nhật
         return self.repo.update(tai_khoan_moi)
 # app/application/services/tai_khoan/__init__.py
 """
@@ -1825,111 +2302,75 @@ __all__ = [
     "DeleteTaiKhoanService",
     "QueryTaiKhoanService",
 ]
-# app/application/validators/tt99_account_validator.py
-from app.application.interfaces.account_validator import TaiKhoanValidator
-from app.domain.models.account import TaiKhoan as TaiKhoanDomain
+# path: app/domain/models/account.py
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import List, Optional
+
+# Import DetailObjectType từ file journal_entry để xác định loại đối tượng chi tiết cần theo dõi
+from app.domain.models.journal_entry import DetailObjectType
 
 
-class TT99TaiKhoanValidator(TaiKhoanValidator):
+class LoaiTaiKhoan(Enum):
     """
-    Validator đảm bảo tài khoản tuân thủ TT99/2025/TT-BTC và Phụ lục II.
+    Định nghĩa loại tài khoản theo TT99 (Tài sản, Nguồn vốn, Doanh thu, Chi phí, Khác).
+    Đây là phân loại căn cứ để xác định bản chất dư nợ/dư có.
     """
 
-    def validate(self, tai_khoan: TaiKhoanDomain):
-        # 1. Kiểm tra nhóm tài khoản 9xx (TT99 không có)
-        if tai_khoan.so_tai_khoan.startswith("9"):
-            raise ValueError("TT99/2025/TT-BTC không có tài khoản nhóm 9xx.")
-
-        # 2. Kiểm tra định dạng số tài khoản (vd: chỉ gồm số, dài tối đa 10 ký tự)
-        if not tai_khoan.so_tai_khoan.isdigit():
-            raise ValueError("Số tài khoản chỉ được chứa ký tự số.")
-
-        if len(tai_khoan.so_tai_khoan) > 10:
-            raise ValueError("Số tài khoản không được vượt quá 10 ký tự.")
-
-        # 3. (Tùy chọn) Kiểm tra tên tài khoản theo danh sách chuẩn (có thể load từ file)
-        # self._kiem_tra_ten_tai_khoan_theo_pl2(tai_khoan)
-# app/domain/models/account.py
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+    TAI_SAN = auto()  # Loại 1, 2
+    NGUON_VON = auto()  # Loại 3, 4
+    DOANH_THU = auto()  # Loại 5, 7
+    CHI_PHI = auto()  # Loại 6, 8
+    KHAC = auto()  # Loại 0 (Tài khoản ngoài bảng)
 
 
-class LoaiTaiKhoan(str, Enum):
-    TAI_SAN = "TAI_SAN"
-    NO_PHAI_TRA = "NO_PHAI_TRA"
-    VON_CHU_SO_HUU = "VON_CHU_SO_HUU"
-    DOANH_THU = "DOANH_THU"
-    CHI_PHI = "CHI_PHI"
-    GIA_VON = "GIA_VON"
-    THU_NHAP_KHAC = "THU_NHAP_KHAC"
-    KHAC = "KHAC"
-
-
-@dataclass
+@dataclass(frozen=True)
 class TaiKhoan:
-    so_tai_khoan: str
+    """
+    Mô hình Domain cho Tài Khoản Kế Toán, tuân thủ TT99/2025/TT-BTC.
+    Dùng tiếng Việt không dấu cho thuộc tính, PascalCase cho tên Class.
+
+    Thuộc tính 'required_detail_type' được thêm để thực thi Vấn đề 2 PM:
+    Kiểm tra bắt buộc phải hạch toán kèm đối tượng chi tiết (VD: Khách hàng, Nhà cung cấp).
+    """
+
+    so_tai_khoan: str  # Ví dụ: '111', '1111', '11111'
     ten_tai_khoan: str
     loai_tai_khoan: LoaiTaiKhoan
-    cap_tai_khoan: int = 1
-    so_tai_khoan_cha: Optional[str] = None
-    la_tai_khoan_tong_hop: bool = True
+    cap_tai_khoan: int = field(default=1)  # Cấp 1, 2, 3, 4, 5...
+    so_tai_khoan_cha: Optional[str] = field(default=None)
+    # la_tai_khoan_tong_hop giữ lại theo cấu trúc cũ, nhưng ưu tiên dùng has_children() của Repo cho nghiệp vụ
+    la_tai_khoan_tong_hop: bool = field(default=True)
 
-    def __post_init__(self):
-        # 1. Kiểm tra số tài khoản không trống
-        if not self.so_tai_khoan or not self.so_tai_khoan.strip():
-            raise ValueError("Số tài khoản không được để trống.")
-
-        # 2. Kiểm tra tên tài khoản không trống
-        if not self.ten_tai_khoan or not self.ten_tai_khoan.strip():
-            raise ValueError("Tên tài khoản không được để trống.")
-
-        # 3. Kiểm tra cấp tài khoản hợp lệ
-        if self.cap_tai_khoan < 1 or self.cap_tai_khoan > 3:
-            raise ValueError("Cấp tài khoản phải từ 1 đến 3.")
-
-        # ✅ [TT99-PL2] Không cho phép tài khoản nhóm 9xx (ví dụ: 911)
-        if self.so_tai_khoan.startswith("9"):
-            raise ValueError(
-                "TT99/2025/TT-BTC không có tài khoản nhóm 9xx. Không được tạo tài khoản bắt đầu bằng '9'."
-            )
-
-        # 4. Tài khoản cấp con phải có tài khoản cha
-        if self.cap_tai_khoan > 1:
-            if not self.so_tai_khoan_cha or not self.so_tai_khoan_cha.strip():
-                raise ValueError(
-                    f"Tài khoản cấp con (Cấp {self.cap_tai_khoan}) phải có tài khoản cha."
-                )
-
-    def __post_init__(self):
-        self.kiem_tra_hop_le()
+    # Danh sách các loại đối tượng chi tiết bắt buộc phải theo dõi khi hạch toán
+    required_detail_type: List[DetailObjectType] = field(default_factory=list)
 
     def kiem_tra_hop_le(self):
         """
-        [TT99-PL2] Kiểm tra tính hợp lệ của tài khoản theo Phụ lục II.
-        """
-        if not self.so_tai_khoan or not self.so_tai_khoan.strip():
-            raise ValueError("Số tài khoản không được để trống.")
-        if not self.ten_tai_khoan or not self.ten_tai_khoan.strip():
-            raise ValueError("Tên tài khoản không được để trống.")
-        if len(self.so_tai_khoan) > 20:
-            raise ValueError("Số tài khoản không được vượt quá 20 ký tự.")
-        if len(self.ten_tai_khoan) > 256:
-            raise ValueError("Tên tài khoản không được vượt quá 256 ký tự.")
-        if self.cap_tai_khoan < 1 or self.cap_tai_khoan > 3:
-            raise ValueError(
-                "Cấp tài khoản phải từ 1 đến 3 theo TT99/2025/TT-BTC Phụ lục II."
-            )
-        if self.cap_tai_khoan > 1:
-            if not self.so_tai_khoan_cha or not self.so_tai_khoan_cha.strip():
-                raise ValueError(
-                    f"Tài khoản cấp con (Cấp {self.cap_tai_khoan}) phải có số tài khoản cha."
-                )
+        Kiểm tra các ràng buộc cơ bản của Domain Model Tài Khoản (ví dụ: cấp tài khoản, quan hệ cha con).
 
-        # ✅ [TT99-PL2] Cấm tài khoản nhóm 9xx
+        Raises:
+            ValueError: Nếu tài khoản vi phạm các quy tắc ràng buộc cấp/cha con.
+        """
+        if not (1 <= self.cap_tai_khoan <= 5):
+            raise ValueError("Cấp tài khoản phải nằm trong phạm vi 1 đến 5.")
+
+        # Cảnh báo cho tài khoản 9xx (Kế toán quản trị)
         if self.so_tai_khoan.startswith("9"):
+            print(
+                f"Cảnh báo: Tài khoản {self.so_tai_khoan} thuộc nhóm 9xx (Kế toán quản trị) - không theo chuẩn Phụ lục II TT99."
+            )
+
+        # Tài khoản cấp 1 phải không có cha
+        if self.cap_tai_khoan == 1 and self.so_tai_khoan_cha is not None:
+            raise ValueError("Tài khoản cấp 1 không được có tài khoản cha.")
+
+        # Tài khoản con phải bắt đầu bằng số tài khoản cha
+        if self.so_tai_khoan_cha and not self.so_tai_khoan.startswith(
+            self.so_tai_khoan_cha
+        ):
             raise ValueError(
-                "TT99/2025/TT-BTC không có tài khoản nhóm 9xx. Không được phép tạo tài khoản bắt đầu bằng '9'."
+                "Số tài khoản con phải bắt đầu bằng số tài khoản cha."
             )
 from dataclasses import dataclass
 from datetime import date
@@ -1972,77 +2413,75 @@ class KyKeToan:
         ngay khi đối tượng KyKeToan được tạo ra.
         """
         self.kiem_tra_hop_le()
+# path: app/domain/models/journal_entry.py
+import uuid
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, field_validator
 
-# Hằng số cho độ chính xác tiền tệ (Ví dụ: làm tròn đến 0 đồng)
-CURRENCY_PRECISION = Decimal("1")
-
-
-class JournalEntryLine(BaseModel):
+class DetailObjectType(Enum):
     """
-    Chi tiết một dòng bút toán (Nợ hoặc Có).
+    Định nghĩa các loại đối tượng cần theo dõi chi tiết (sub-ledger tracking) theo yêu cầu TT99.
+
+    Các loại chi tiết này được liên kết với TaiKhoan để đảm bảo tính minh bạch và chi tiết
+    trong báo cáo tài chính.
     """
 
-    so_tai_khoan: str  # Ví dụ: "111", "641"
-    mo_ta: Optional[str] = None
-    no: Decimal = Decimal(0)  # Số tiền bên Nợ
-    co: Decimal = Decimal(0)  # Số tiền bên Có
-    so_chung_tu_goc: Optional[str] = None # ĐÃ THÊM: Số chứng từ gốc (nếu có)
-
-    # Đảm bảo Decimal được áp dụng chính xác cho giá trị tiền tệ
-    @field_validator("no", "co", mode="before")
-    def convert_to_decimal(cls, value):
-        if isinstance(value, (int, float)):
-            value = str(value)
-        return Decimal(value).quantize(CURRENCY_PRECISION)
-
-    @field_validator("no")
-    def check_no_non_negative(cls, value):
-        if value < Decimal(0):
-            raise ValueError("Số tiền bên Nợ phải không âm")
-        return value
-
-    @field_validator("co")
-    def check_co_non_negative(cls, value):
-        if value < Decimal(0):
-            raise ValueError("Số tiền bên Có phải không âm")
-        return value
+    NONE = "NONE"  # Không yêu cầu chi tiết
+    CUSTOMER = "KHACH_HANG"  # Khách hàng (Dùng cho TK 131, 138,...)
+    SUPPLIER = "NHA_CUNG_CAP"  # Nhà cung cấp (Dùng cho TK 331, 338,...)
+    INVENTORY = "HANG_HOA"  # Hàng hóa/Vật tư (Dùng cho TK 152, 156,...)
+    COST_OBJECT = "DOI_TUONG_CHI_PHI"  # Đối tượng tập hợp chi phí (Dùng cho TK 621, 627,...)
+    FIXED_ASSET = (
+        "TAI_SAN_CO_DINH"  # Tài sản cố định (Dùng cho TK 211, 214,...)
+    )
 
 
-class JournalEntry(BaseModel):
+class TransactionType(Enum):
     """
-    Model Bút toán tổng hợp (Journal Entry).
+    Loại giao dịch trong dòng bút toán (Nợ/Có).
     """
 
-    id: Optional[int] = None
-    ngay_ct: date = date.today()  # Ngày chứng từ (Sử dụng datetime.date chuẩn)
-    so_phieu: str  # Số chứng từ/phiếu kế toán
-    mo_ta: str  # Diễn giải chung
-    lines: List[JournalEntryLine]  # Chi tiết các dòng bút toán
-    trang_thai: str = "Draft"  # Ví dụ: "Draft", "Posted", "Cancelled"
+    DEBIT = "Nợ"
+    CREDIT = "Có"
 
-    # Sử dụng __post_init__ để kiểm tra tính cân bằng của bút toán
-    def __post_init__(self):
-        # Tính tổng Nợ và Có
-        tong_no = sum(
-            (line.no for line in self.lines), start=Decimal(0)
-        ).quantize(CURRENCY_PRECISION)
-        
-        tong_co = sum(
-            (line.co for line in self.lines), start=Decimal(0)
-        ).quantize(CURRENCY_PRECISION)
 
-        if tong_no != tong_co:
-            raise ValueError(
-                f"Bút toán không cân bằng: Tổng Nợ ({tong_no}) khác Tổng Có ({tong_co})"
-            )
-        
-        # Thêm thuộc tính động cho tổng cộng
-        self.tong_cong = tong_no
+@dataclass(frozen=True)
+class ButToanLine:
+    """
+    Mô hình một dòng (line) chi tiết trong bút toán.
+    """
+
+    account_number: str
+    amount: Decimal
+    transaction_type: TransactionType
+
+    # === Thuộc tính Chi tiết Bắt buộc (Vấn đề 2 PM) ===
+    detail_object_type: DetailObjectType = field(default=DetailObjectType.NONE)
+    detail_object_id: Optional[str] = field(
+        default=None
+    )  # Mã của đối tượng chi tiết (VD: 'KH001', 'NCC005')
+
+
+@dataclass(frozen=True)
+class GhiSoKeToan:
+    """
+    Mô hình Domain cho Bút Toán Kế Toán (Journal Entry).
+    Đây là đơn vị giao dịch cơ bản trong hệ thống kế toán.
+    """
+
+    entry_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    entry_date: date
+    document_type: (
+        str  # Loại chứng từ (VD: PC - Phiếu chi, PT - Phiếu thu, BC - Báo có)
+    )
+    document_number: str  # Số chứng từ (VD: PC0001, PT2025/001)
+    description: str  # Diễn giải nghiệp vụ kế toán
+    lines: List[ButToanLine]
+    created_at: date = field(default_factory=date.today)
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
@@ -2321,6 +2760,119 @@ class BaoCaoThuyetMinh(BaoCaoTaiChinhBase):
     thong_tin_giao_dich_voi_cac_ben_lien_quan: str = "Không có"
     cac_su_kien_sau_ngay_ket_thuc_ky_ke_toan: str = "Không có"
     # ... (các phần khác của thuyết minh)
+# path: app/domain/validators/tt99_journal_entry_validator.py
+from app.application.interfaces.account_repo import AccountRepositoryInterface
+from app.application.interfaces.journal_entry_validator import (
+    JournalEntryValidatorInterface,
+)
+from app.domain.models.journal_entry import (
+    ButToanLine,
+    GhiSoKeToan,
+    TransactionType,
+)
+
+
+class TT99JournalEntryValidator(JournalEntryValidatorInterface):
+    """
+    [DOMAIN LAYER - BUSINESS RULE]
+    Xác thực các quy tắc nghiệp vụ hạch toán phức tạp theo Thông tư 99/2025/TT-BTC,
+    đặc biệt là quy tắc đối ứng Nợ/Có.
+
+    Đây là một quy tắc cốt lõi, độc lập với Application Service gọi nó.
+    """
+
+    def __init__(self, account_repo: AccountRepositoryInterface):
+        """
+        Khởi tạo Validator.
+
+        Args:
+            account_repo: Repository để truy vấn thông tin chi tiết về tài khoản.
+        """
+        self._account_repo = account_repo
+
+    def validate(self, entry: GhiSoKeToan):
+        """
+        Thực hiện xác thực toàn bộ bút toán dựa trên các quy tắc đối ứng TT99.
+
+        Args:
+            entry: Domain model GhiSoKeToan cần được xác thực.
+
+        Raises:
+            ValueError: Nếu bút toán vi phạm quy tắc đối ứng.
+        """
+        debit_lines = [
+            line
+            for line in entry.lines
+            if line.transaction_type == TransactionType.DEBIT
+        ]
+        credit_lines = [
+            line
+            for line in entry.lines
+            if line.transaction_type == TransactionType.CREDIT
+        ]
+
+        # 1. Kiểm tra từng cặp Nợ/Có
+        for debit_line in debit_lines:
+            for credit_line in credit_lines:
+                self._check_reciprocal_rule(debit_line, credit_line)
+
+    def _check_reciprocal_rule(
+        self, debit_line: ButToanLine, credit_line: ButToanLine
+    ):
+        """
+        Kiểm tra tính hợp lệ của cặp đối ứng Nợ và Có.
+
+        Args:
+            debit_line: Dòng bút toán ghi Nợ.
+            credit_line: Dòng bút toán ghi Có.
+
+        Raises:
+            ValueError: Nếu cặp Nợ/Có vi phạm quy tắc.
+        """
+        tk_no = self._account_repo.get_by_id(debit_line.account_number)
+        tk_co = self._account_repo.get_by_id(credit_line.account_number)
+
+        if not tk_no or not tk_co:
+            # Lỗi này đã được bắt trong Service, nhưng cần kiểm tra lại để an toàn
+            raise ValueError(
+                "Lỗi hệ thống: Không tìm thấy thông tin Tài khoản khi kiểm tra đối ứng."
+            )
+
+        # Lấy nhóm TK cấp 1 (ví dụ: '111' -> '1', '641' -> '6')
+        group_no = tk_no.so_tai_khoan[0]
+        group_co = tk_co.so_tai_khoan[0]
+
+        # Quy tắc 1: Tiền mặt (111) không được đối ứng trực tiếp với Nguồn vốn chủ sở hữu (4xx).
+        if (
+            group_no == '1'
+            and tk_no.so_tai_khoan.startswith('111')
+            and group_co == '4'
+        ):
+            raise ValueError(
+                f"Lỗi Đối ứng: TK Nợ {tk_no.so_tai_khoan} (Tiền mặt) không được đối ứng trực tiếp với TK Có {tk_co.so_tai_khoan} (Nguồn vốn CSH). Cần qua TK trung gian."
+            )
+
+        # Quy tắc 2: Không hạch toán nợ, có cùng một tài khoản cấp cuối (Leaf Account Rule - Tương tự Vấn đề 1 PM)
+        # Chỉ kiểm tra khi hai tài khoản là một
+        if debit_line.account_number == credit_line.account_number:
+            raise ValueError(
+                f"Lỗi Đối ứng: Không được hạch toán Nợ và Có cùng một tài khoản ({debit_line.account_number})."
+            )
+
+        # Quy tắc 3: Doanh thu (5xx, 7xx) không được đối ứng trực tiếp với Tiền (11x)
+        if (
+            group_no in ['5', '7']
+            and group_co == '1'
+            and tk_co.so_tai_khoan.startswith('11')
+        ) or (
+            group_co in ['5', '7']
+            and group_no == '1'
+            and tk_no.so_tai_khoan.startswith('11')
+        ):
+            # Tạm thời chỉ là cảnh báo, vì có thể có thu tiền ngay.
+            print(
+                f"Cảnh báo Đối ứng: TK Doanh thu ({group_no}xx) đối ứng trực tiếp với TK Tiền ({tk_no.so_tai_khoan}/{tk_co.so_tai_khoan}). Cần kiểm tra chứng từ bán hàng/thu tiền ngay."
+            )
 # File: app/infrastructure/base.py
 from sqlalchemy.orm import declarative_base
 
@@ -3982,7 +4534,16 @@ class JournalEntryRepository:
                 )
             )
         return journal_entries_domain
-
+    
+    def get_draft_entries_by_date_range(self, start: date, end: date) -> List[JournalEntryDomain]:
+        return (
+            self.db_session.query(SQLJournalEntry)
+            .options(joinedload(SQLJournalEntry.lines))
+            .filter(SQLJournalEntry.ngay_ct.between(start, end))
+            .filter(SQLJournalEntry.trang_thai == "Draft")
+            .all()
+        )
+        
     def get_so_du_dau_ky(self, so_tai_khoan: str, ngay: date) -> Decimal:
         """
         Tính số dư luỹ kế (Dư Nợ hoặc Dư Có) của một tài khoản cụ thể tại thời điểm đầu kỳ.

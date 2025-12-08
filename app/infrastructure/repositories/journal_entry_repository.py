@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session, joinedload
 
 # Domain Models - Đại diện cho các thực thể nghiệp vụ (business entities)
 from app.domain.models.journal_entry import JournalEntry as JournalEntryDomain
-from app.domain.models.journal_entry import JournalEntryLine as JournalEntryLineDomain
+from app.domain.models.journal_entry import (
+    JournalEntryLine as JournalEntryLineDomain,
+)
 
 # Infrastructure Models (ORM) - Ánh xạ tới cấu trúc bảng trong CSDL
 from app.infrastructure.models.sql_journal_entry import (
@@ -421,6 +423,17 @@ class JournalEntryRepository:
                 )
             )
         return journal_entries_domain
+
+    def get_draft_entries_by_date_range(
+        self, start: date, end: date
+    ) -> List[JournalEntryDomain]:
+        return (
+            self.db_session.query(SQLJournalEntry)
+            .options(joinedload(SQLJournalEntry.lines))
+            .filter(SQLJournalEntry.ngay_ct.between(start, end))
+            .filter(SQLJournalEntry.trang_thai == "Draft")
+            .all()
+        )
 
     def get_so_du_dau_ky(self, so_tai_khoan: str, ngay: date) -> Decimal:
         """

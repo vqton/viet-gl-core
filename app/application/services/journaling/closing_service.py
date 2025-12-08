@@ -26,7 +26,7 @@ class ClosingJournalEntryService:
         self.account_repo = account_repo
 
     def execute(
-        self, ky_hieu: str, ngay_ket_chuyen: date
+        self, ky_hieu: str, ngay_ket_chuyen: date, ngay_ket_thuc: date
     ) -> list[JournalEntry]:
         """
         [TT99-Đ24] Kết chuyển Doanh thu/Chi phí vào 421.

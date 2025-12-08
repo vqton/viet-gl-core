@@ -8,7 +8,7 @@ from app.domain.models.account import TaiKhoan
 class AccountRepositoryInterface(ABC):
     """
     Interface định nghĩa các thao tác CRUD và truy vấn cho Tài Khoản Kế Toán.
-    
+
     Đây là một phần của lớp Ứng dụng (Application Layer), cung cấp giao diện
     để tương tác với dữ liệu Tài Khoản mà không quan tâm đến chi tiết
     triển khai cơ sở dữ liệu (ví dụ: SQL, NoSQL, In-Memory).
@@ -50,7 +50,7 @@ class AccountRepositoryInterface(ABC):
 
         Returns:
             TaiKhoan: Tài khoản sau khi đã được cập nhật.
-            
+
         Raises:
             ValueError: Nếu tài khoản không tồn tại.
         """
@@ -78,12 +78,12 @@ class AccountRepositoryInterface(ABC):
             List[TaiKhoan]: Danh sách các Domain model TaiKhoan.
         """
         pass
-    
+
     @abstractmethod
     def has_children(self, so_tai_khoan: str) -> bool:
         """
         Kiểm tra xem một tài khoản có tài khoản con (chi tiết) hay không.
-        
+
         Đây là quy tắc nghiệp vụ CỐT LÕI (Leaf Account Rule) theo TT99:
         Nếu tài khoản CÓ con, nó là TK tổng hợp và KHÔNG được phép hạch toán.
 

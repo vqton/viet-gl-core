@@ -34,7 +34,7 @@ class TaiKhoanServiceFactory:
 
     def create_update_service(self) -> UpdateTaiKhoanService:
         # Inject validator cho Update Service
-        return UpdateTaiKhoanService(repo=self.repo, validator=self.validator) 
+        return UpdateTaiKhoanService(repo=self.repo, validator=self.validator)
 
     def create_delete_service(self) -> DeleteTaiKhoanService:
         return DeleteTaiKhoanService(repo=self.repo)

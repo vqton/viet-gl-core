@@ -2,6 +2,7 @@
 [SRP] Service chịu trách nhiệm tính toán Báo cáo tình hình tài chính (B01-DN) theo TT99/2025/TT-BTC.
 Phụ lục IV: Mẫu B01-DN.
 """
+
 import logging
 from datetime import date
 from decimal import Decimal
@@ -43,7 +44,7 @@ class FinancialPositionService:
 
         def get_balance(so_tai_khoan_goc: str) -> Decimal:
             """Hàm tính Số dư cuối kỳ (Số dư Nợ - Số dư Có) cho TK Tài sản,
-               và (Số dư Có - Số dư Nợ) cho TK Nguồn vốn."""
+            và (Số dư Có - Số dư Nợ) cho TK Nguồn vốn."""
             tong_no = Decimal(0)
             tong_co = Decimal(0)
             for so_tai_khoan, (sd_no, sd_co) in account_balances.items():
@@ -63,10 +64,10 @@ class FinancialPositionService:
             if not tai_khoan_goc:
                 # Nếu không tìm thấy TK gốc, cố gắng xác định loại qua đầu số
                 first_digit = so_tai_khoan_goc[0]
-                if first_digit in "12": # Tài sản
+                if first_digit in "12":  # Tài sản
                     net_balance = tong_no - tong_co
                     return abs(net_balance).quantize(Decimal("0.01"))
-                elif first_digit in "34": # Nguồn vốn
+                elif first_digit in "34":  # Nguồn vốn
                     net_balance = tong_co - tong_no
                     return abs(net_balance).quantize(Decimal("0.01"))
                 return Decimal(0)
@@ -98,12 +99,16 @@ class FinancialPositionService:
             hang_ton_kho=get_balance("156"),
             tai_san_ngan_han_khac=get_balance("150"),
             # Tổng Tài sản Ngắn hạn (Mã số 100)
-            tong_tai_san_ngan_han=tien_va_tg_tien + get_balance("121") + get_balance("131") + get_balance("156") + get_balance("150"),
+            tong_tai_san_ngan_han=tien_va_tg_tien
+            + get_balance("121")
+            + get_balance("131")
+            + get_balance("156")
+            + get_balance("150"),
         )
 
         # Tính Tài sản Dài hạn (II)
         tai_san_co_dinh_huu_hinh = get_balance("211") - get_balance("214")
-        
+
         tai_san_dai_han = TaiSanDaiHan(
             tai_san_co_dinh_huu_hinh=tai_san_co_dinh_huu_hinh,
             tai_san_co_dinh_vo_hinh=get_balance("221"),
@@ -111,14 +116,19 @@ class FinancialPositionService:
             cac_khoan_dau_tu_tc_dai_han=get_balance("221"),
             tai_san_dai_han_khac=get_balance("241"),
             # Tổng Tài sản Dài hạn (Mã số 200)
-            tong_tai_san_dai_han=tai_san_co_dinh_huu_hinh + get_balance("221") + get_balance("217") + get_balance("221") + get_balance("241"),
+            tong_tai_san_dai_han=tai_san_co_dinh_huu_hinh
+            + get_balance("221")
+            + get_balance("217")
+            + get_balance("221")
+            + get_balance("241"),
         )
 
         # Tổng Tài sản (Mã số 270)
         tong_tai_san = TongTaiSan(
             tai_san_ngan_han=tai_san_ngan_han,
             tai_san_dai_han=tai_san_dai_han,
-            tong_cong_tai_san=tai_san_ngan_han.tong_tai_san_ngan_han + tai_san_dai_han.tong_tai_san_dai_han,
+            tong_cong_tai_san=tai_san_ngan_han.tong_tai_san_ngan_han
+            + tai_san_dai_han.tong_tai_san_dai_han,
         )
 
         # Tính nguồn vốn - Nợ Phải trả Ngắn hạn (A)
@@ -128,7 +138,10 @@ class FinancialPositionService:
             thue_va_cac_khoan_phai_nop_nha_nuoc=get_balance("333"),
             phai_tra_ngan_han_khac=get_balance("338"),
             # Tổng Nợ Ngắn hạn (Mã số 300)
-            tong_no_ngan_han=get_balance("341") + get_balance("331") + get_balance("333") + get_balance("338"),
+            tong_no_ngan_han=get_balance("341")
+            + get_balance("331")
+            + get_balance("333")
+            + get_balance("338"),
         )
 
         # Tính nguồn vốn - Nợ Phải trả Dài hạn (B)
@@ -188,5 +201,5 @@ class FinancialPositionService:
                 tk.so_tai_khoan, start, end
             )
             # Lưu trữ Số dư Cuối kỳ Nợ và Có
-            balances[tk.so_tai_khoan] = (sd_ck_no, sd_ck_co) 
+            balances[tk.so_tai_khoan] = (sd_ck_no, sd_ck_co)
         return balances

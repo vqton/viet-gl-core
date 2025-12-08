@@ -6,14 +6,16 @@ from app.application.interfaces.account_repo import AccountRepositoryInterface
 from app.application.interfaces.journal_entry_repo import (
     JournalEntryRepositoryInterface,
 )
-from app.application.interfaces.period_repo import AccountingPeriodRepositoryInterface
+from app.application.interfaces.period_repo import (
+    AccountingPeriodRepositoryInterface,
+)
 from app.domain.models.journal_entry import DetailObjectType, GhiSoKeToan
 
 
 class JournalEntryCreateService:
     """
     Service tạo mới một bút toán (Journal Entry).
-    
+
     Chịu trách nhiệm thực thi các quy tắc nghiệp vụ quan trọng theo TT99:
     1. Kiểm tra tính cân bằng (Nợ = Có).
     2. Kiểm tra kỳ kế toán đang mở.
@@ -48,20 +50,20 @@ class JournalEntryCreateService:
 
         Returns:
             GhiSoKeToan: Bút toán đã được lưu thành công.
-            
+
         Raises:
             ValueError: Nếu bút toán không hợp lệ (không cân bằng, sai kỳ, hoặc thiếu chi tiết).
             Exception: Lỗi hệ thống khi lưu trữ.
         """
-        
+
         # 1. Kiểm tra tính cân bằng (Tổng Nợ = Tổng Có)
         total_debit, total_credit = self._calculate_totals(entry)
 
         if total_debit != total_credit:
-             raise ValueError(
+            raise ValueError(
                 f"Bút toán không cân bằng. Tổng Nợ: {total_debit.quantize(Decimal('0.00'))} | Tổng Có: {total_credit.quantize(Decimal('0.00'))}"
             )
-        
+
         # 2. Kiểm tra Kỳ Kế toán có đang Mở không
         is_open = self._period_repo.is_date_in_open_period(entry.entry_date)
         if not is_open:
@@ -72,18 +74,18 @@ class JournalEntryCreateService:
         # 3. Kiểm tra các tài khoản và quy tắc chi tiết hóa TT99
         for line in entry.lines:
             account = self._account_repo.get_by_id(line.account_number)
-            
+
             if not account:
                 raise ValueError(
                     f"Tài khoản '{line.account_number}' trong bút toán không tồn tại."
                 )
-            
+
             # Vấn đề 1 PM: Kiểm tra Leaf Account (Tài khoản cấp cuối cùng)
             if self._account_repo.has_children(line.account_number):
-                 raise ValueError(
+                raise ValueError(
                     f"Tài khoản '{line.account_number}' là tài khoản tổng hợp. Vui lòng hạch toán vào tài khoản chi tiết (Leaf Account)."
                 )
-            
+
             # Vấn đề 2 PM: Kiểm tra Chi tiết Bắt buộc (Mandatory Detail Linkage)
             required_types = account.required_detail_type
             if required_types:
@@ -94,18 +96,22 @@ class JournalEntryCreateService:
                     raise ValueError(
                         f"Tài khoản '{line.account_number}' bắt buộc phải theo dõi chi tiết theo: {', '.join(required_names)}. Vui lòng cung cấp Mã đối tượng."
                     )
-                
+
                 # Bổ sung logic kiểm tra loại đối tượng (detail_object_type)
                 if line.detail_object_type not in required_types:
                     # Bắt buộc loại đối tượng phải nằm trong danh sách yêu cầu
                     raise ValueError(
                         f"Tài khoản '{line.account_number}' yêu cầu loại chi tiết {required_types}, nhưng dòng bút toán cung cấp loại {line.detail_object_type.value}."
                     )
-                
+
             # 3c. Kiểm tra số tiền
             if line.amount <= Decimal(0):
-                 raise ValueError("Số tiền trong dòng bút toán phải lớn hơn 0.")
+                raise ValueError("Số tiền trong dòng bút toán phải lớn hơn 0.")
 
+            if not line.so_chung_tu_goc or not line.ngay_chung_tu_goc:
+                raise ValueError(
+                    "Mọi bút toán phải có số và ngày chứng từ gốc theo TT99 Điều 10."
+                )
         # 4. Lưu bút toán vào Repository (Database)
         try:
             saved_entry = self._journal_entry_repo.add(entry)
@@ -113,11 +119,11 @@ class JournalEntryCreateService:
         except Exception as e:
             # Xử lý lỗi lưu trữ
             raise Exception(f"Không thể lưu bút toán do lỗi hệ thống: {e}")
-            
+
     def _calculate_totals(self, entry: GhiSoKeToan) -> Tuple[Decimal, Decimal]:
         """
         Tính tổng Nợ và tổng Có của bút toán để đảm bảo tính cân bằng.
-        
+
         Args:
             entry: Domain model GhiSoKeToan.
 
