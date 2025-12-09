@@ -54,11 +54,7 @@ class FinancialPositionService:
 
             # Xác định loại tài khoản gốc
             tai_khoan_goc = next(
-                (
-                    tk
-                    for tk in all_accounts
-                    if tk.so_tai_khoan == so_tai_khoan_goc
-                ),
+                (tk for tk in all_accounts if tk.so_tai_khoan == so_tai_khoan_goc),
                 None,
             )
             if not tai_khoan_goc:
@@ -188,9 +184,7 @@ class FinancialPositionService:
             nguon_von=tong_nguon_von,
         )
 
-    def _tinh_tat_ca_so_du(
-        self, accounts: List[TaiKhoan], start: date, end: date
-    ):
+    def _tinh_tat_ca_so_du(self, accounts: List[TaiKhoan], start: date, end: date):
         """
         Lấy số dư cuối kỳ (Ending Balance) của tất cả các tài khoản.
         """

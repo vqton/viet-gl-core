@@ -77,13 +77,12 @@ class CashFlowService:
             lines_tien = [
                 l
                 for l in entry.lines
-                if l.so_tai_khoan.startswith(('111', '112', '113'))
-                and l.co > 0
+                if l.so_tai_khoan.startswith(("111", "112", "113")) and l.co > 0
             ]
             lines_tscd = [
                 l
                 for l in entry.lines
-                if l.so_tai_khoan.startswith(('211', '213')) and l.no > 0
+                if l.so_tai_khoan.startswith(("211", "213")) and l.no > 0
             ]
             if lines_tien and lines_tscd:
                 so_tien = min(
@@ -101,9 +100,7 @@ class CashFlowService:
         (hoặc tài khoản gốc, ví dụ: '131' sẽ bao gồm '131x') trong khoảng thời gian (bd, kt)
         từ các bút toán đã Posted.
         """
-        all_entries: List[JournalEntry] = self.repo.get_all_posted_in_range(
-            bd, kt
-        )
+        all_entries: List[JournalEntry] = self.repo.get_all_posted_in_range(bd, kt)
 
         tong_phat_sinh = Decimal(0)
 
@@ -138,20 +135,14 @@ class CashFlowService:
         # Giả định B02 model có thuộc tính tong_loi_nhuan_truoc_thue
         return b02_report.tong_loi_nhuan_truoc_thue
 
-    def _tinh_dieu_chinh_khau_hao_ts_co_dinh(
-        self, start: date, end: date
-    ) -> Decimal:
+    def _tinh_dieu_chinh_khau_hao_ts_co_dinh(self, start: date, end: date) -> Decimal:
         """
         I.02: Điều chỉnh Khấu hao tài sản cố định (TK 214). Phát sinh Có TK 214.
         """
-        khau_hao = self._tinh_phat_sinh_tai_khoan(
-            tk="214", loai="CO", bd=start, kt=end
-        )
+        khau_hao = self._tinh_phat_sinh_tai_khoan(tk="214", loai="CO", bd=start, kt=end)
         return khau_hao
 
-    def _tinh_dieu_chinh_du_phong_va_ty_gia(
-        self, start: date, end: date
-    ) -> Decimal:
+    def _tinh_dieu_chinh_du_phong_va_ty_gia(self, start: date, end: date) -> Decimal:
         """
         I.03: Lãi/lỗ từ chênh lệch tỷ giá hối đoái chưa thực hiện,
               chi phí dự phòng. (TK 413, 229, 352)
@@ -215,13 +206,10 @@ class CashFlowService:
             lines_tien = [
                 l
                 for l in entry.lines
-                if l.so_tai_khoan.startswith(('111', '112', '113'))
-                and l.co > 0
+                if l.so_tai_khoan.startswith(("111", "112", "113")) and l.co > 0
             ]
             lines_lai_vay = [
-                l
-                for l in entry.lines
-                if l.so_tai_khoan in ('335', '341') and l.no > 0
+                l for l in entry.lines if l.so_tai_khoan in ("335", "341") and l.no > 0
             ]
 
             if lines_tien and lines_lai_vay:
@@ -233,9 +221,7 @@ class CashFlowService:
 
         return tong_tien_tra_lai
 
-    def _tinh_thay_doi_tai_san_phai_thu(
-        self, start: date, end: date
-    ) -> Decimal:
+    def _tinh_thay_doi_tai_san_phai_thu(self, start: date, end: date) -> Decimal:
         """
         I.07: Tăng/giảm các khoản phải thu (TK 13x, 14x...).
         Tăng phải thu (PS Nợ > PS Có) -> Trừ khỏi Lợi nhuận.
@@ -243,12 +229,8 @@ class CashFlowService:
         tong_tang_rong = Decimal(0)
 
         for tk in TK_TAI_SAN_PHAI_THU:
-            ps_no = self._tinh_phat_sinh_tai_khoan(
-                tk=tk, loai="NO", bd=start, kt=end
-            )
-            ps_co = self._tinh_phat_sinh_tai_khoan(
-                tk=tk, loai="CO", bd=start, kt=end
-            )
+            ps_no = self._tinh_phat_sinh_tai_khoan(tk=tk, loai="NO", bd=start, kt=end)
+            ps_co = self._tinh_phat_sinh_tai_khoan(tk=tk, loai="CO", bd=start, kt=end)
             # Tăng ròng trong kỳ: PS Nợ (tăng) - PS Có (giảm)
             tong_tang_rong += ps_no - ps_co
 
@@ -263,12 +245,8 @@ class CashFlowService:
         tong_tang_rong = Decimal(0)
 
         for tk in TK_HANG_TON_KHO:
-            ps_no = self._tinh_phat_sinh_tai_khoan(
-                tk=tk, loai="NO", bd=start, kt=end
-            )
-            ps_co = self._tinh_phat_sinh_tai_khoan(
-                tk=tk, loai="CO", bd=start, kt=end
-            )
+            ps_no = self._tinh_phat_sinh_tai_khoan(tk=tk, loai="NO", bd=start, kt=end)
+            ps_co = self._tinh_phat_sinh_tai_khoan(tk=tk, loai="CO", bd=start, kt=end)
 
             # Tăng ròng trong kỳ: PS Nợ (tăng) - PS Có (giảm)
             tong_tang_rong += ps_no - ps_co
@@ -284,12 +262,8 @@ class CashFlowService:
         tong_tang_rong = Decimal(0)
 
         for tk in TK_NO_PHAI_TRA_KHAC:
-            ps_no = self._tinh_phat_sinh_tai_khoan(
-                tk=tk, loai="NO", bd=start, kt=end
-            )
-            ps_co = self._tinh_phat_sinh_tai_khoan(
-                tk=tk, loai="CO", bd=start, kt=end
-            )
+            ps_no = self._tinh_phat_sinh_tai_khoan(tk=tk, loai="NO", bd=start, kt=end)
+            ps_co = self._tinh_phat_sinh_tai_khoan(tk=tk, loai="CO", bd=start, kt=end)
 
             # Tăng ròng trong kỳ: PS Có (tăng) - PS Nợ (giảm)
             tong_tang_rong += ps_co - ps_no
@@ -318,9 +292,7 @@ class CashFlowService:
         # Tạm thời trả về 0 cho I.06 và chỉ tính I.05 (Chi phí lãi vay)
         return Decimal(0)
 
-    def _tinh_tien_thue_thu_nhap_da_nop(
-        self, start: date, end: date
-    ) -> Decimal:
+    def _tinh_tien_thue_thu_nhap_da_nop(self, start: date, end: date) -> Decimal:
         """
         Tính **Tiền thuế TNDN đã nộp thực tế** trong kỳ (mã số I.10, B03-DN).
 
@@ -347,11 +319,10 @@ class CashFlowService:
             lines_tien = [
                 l
                 for l in entry.lines
-                if l.so_tai_khoan.startswith(('111', '112', '113'))
-                and l.co > 0
+                if l.so_tai_khoan.startswith(("111", "112", "113")) and l.co > 0
             ]
             lines_thue = [
-                l for l in entry.lines if l.so_tai_khoan == '3334' and l.no > 0
+                l for l in entry.lines if l.so_tai_khoan == "3334" and l.no > 0
             ]
 
             if lines_tien and lines_thue:
@@ -367,9 +338,7 @@ class CashFlowService:
     # V. CHỈ TIÊU TIỀN VÀ TƯƠNG ĐƯƠNG TIỀN ĐẦU KỲ (Mã số 60)
     # --------------------------------------------------------
 
-    def _tinh_tien_va_tuong_duong_tien_dau_ky(
-        self, ngay_bat_dau: date
-    ) -> Decimal:
+    def _tinh_tien_va_tuong_duong_tien_dau_ky(self, ngay_bat_dau: date) -> Decimal:
         """
         V. Mã số 60: Tiền và tương đương tiền đầu kỳ.
         Là tổng số dư Nợ (balance brought forward) của các tài khoản Tiền
@@ -430,18 +399,14 @@ class CashFlowService:
             ky_hieu, ngay_lap, start, end
         )
         khau_hao = self._tinh_dieu_chinh_khau_hao_ts_co_dinh(start, end)
-        lai_lo_hoat_dong_dau_tu = self._tinh_lai_lo_hoat_dong_dau_tu(
-            start, end
-        )
+        lai_lo_hoat_dong_dau_tu = self._tinh_lai_lo_hoat_dong_dau_tu(start, end)
         chi_phi_lai_vay = self._tinh_chi_phi_lai_vay(start, end)
         thay_doi_phai_thu = self._tinh_thay_doi_tai_san_phai_thu(start, end)
         thay_doi_hang_ton_kho = self._tinh_thay_doi_hang_ton_kho(start, end)
         thay_doi_phai_tra = self._tinh_thay_doi_no_phai_tra(start, end)
 
         tien_lai_vay_da_tra = self._tinh_tien_lai_vay_da_tra(start, end)
-        tien_thue_thu_nhap_da_nop = self._tinh_tien_thue_thu_nhap_da_nop(
-            start, end
-        )
+        tien_thue_thu_nhap_da_nop = self._tinh_tien_thue_thu_nhap_da_nop(start, end)
 
         luu_chuyen_hdkd = (
             loi_nhuan_truoc_thue
@@ -480,9 +445,7 @@ class CashFlowService:
         # Tạm bỏ qua mã số 61 (tỷ giá) nếu không có ngoại tệ
         anh_huong_thay_doi_ty_gia = Decimal(0)
         tien_cuoi_ky = (
-            luu_chuyen_tien_thuan_trong_ky
-            + tien_dau_ky
-            + anh_huong_thay_doi_ty_gia
+            luu_chuyen_tien_thuan_trong_ky + tien_dau_ky + anh_huong_thay_doi_ty_gia
         )
 
         return BaoCaoLuuChuyenTienTe(

@@ -3,6 +3,7 @@
 [SRP] Service chỉ chịu trách nhiệm truy vấn tài khoản (read-only).
 Không thay đổi dữ liệu.
 """
+
 from typing import List, Optional
 
 from app.application.interfaces.account_repo import AccountRepositoryInterface

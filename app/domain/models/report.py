@@ -233,9 +233,7 @@ class ThuyetMinhTaiSan(BaseModel):
 
     tong_cong_thuyet_minh: Decimal = Decimal(0)  # Tổng giá trị
     chi_tiet_tai_khoan: List[ChiTietTaiKhoan]
-    ghi_chu_quan_trong: str = (
-        "Tóm tắt các chính sách kế toán liên quan đến Tài sản."
-    )
+    ghi_chu_quan_trong: str = "Tóm tắt các chính sách kế toán liên quan đến Tài sản."
 
 
 class ThuyetMinhNguonVon(BaseModel):
@@ -243,9 +241,7 @@ class ThuyetMinhNguonVon(BaseModel):
 
     tong_cong_thuyet_minh: Decimal = Decimal(0)  # Tổng giá trị
     chi_tiet_tai_khoan: List[ChiTietTaiKhoan]
-    ghi_chu_quan_trong: str = (
-        "Tóm tắt các chính sách kế toán liên quan đến Nguồn vốn."
-    )
+    ghi_chu_quan_trong: str = "Tóm tắt các chính sách kế toán liên quan đến Nguồn vốn."
 
 
 class ThuyetMinhKetQua(BaseModel):
@@ -254,9 +250,7 @@ class ThuyetMinhKetQua(BaseModel):
     tong_doanh_thu: Decimal = Decimal(0)
     tong_chi_phi: Decimal = Decimal(0)
     chi_tiet_tai_khoan: List[ChiTietTaiKhoan]
-    ghi_chu_quan_trong: str = (
-        "Giải thích các biến động lớn trong doanh thu và chi phí."
-    )
+    ghi_chu_quan_trong: str = "Giải thích các biến động lớn trong doanh thu và chi phí."
 
 
 class BaoCaoThuyetMinh(BaoCaoTaiChinhBase):

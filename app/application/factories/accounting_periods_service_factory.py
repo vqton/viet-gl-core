@@ -4,6 +4,7 @@ Factory tạo các service nhỏ cho kỳ kế toán.
 [OCP] Dễ mở rộng thêm service mới nếu cần.
 [DIP] Tránh phụ thuộc trực tiếp vào implementation.
 """
+
 from app.application.interfaces.period_repo import (
     AccountingPeriodRepositoryInterface,
 )

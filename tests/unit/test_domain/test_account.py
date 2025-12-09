@@ -7,6 +7,7 @@ Unit tests cho Entity Domain: TaiKhoan
 - Điều 11: Doanh nghiệp áp dụng hệ thống tài khoản tại Phụ lục II
 - Không có nhóm tài khoản 9xx → Không tồn tại TK 911
 """
+
 import pytest
 
 from app.domain.models.account import LoaiTaiKhoan, TaiKhoan

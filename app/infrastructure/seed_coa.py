@@ -6,19 +6,15 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
 def seed_coa_from_sql(engine: Engine):
-    sql_file = (
-        Path(__file__).parent / "coa_seed_scripts" / "seed_coa_tt99_full.sql"
-    )
+    sql_file = Path(__file__).parent / "coa_seed_scripts" / "seed_coa_tt99_full.sql"
 
     if not os.path.exists(sql_file):  # ← SỬA: sql_file, không phải sql_build
-        raise FileNotFoundError(
-            f"❌ File SQL seeding không tồn tại: {sql_file}"
-        )
+        raise FileNotFoundError(f"❌ File SQL seeding không tồn tại: {sql_file}")
 
     logging.info(f"📖 Đang đọc file SQL: {sql_file}")
     with open(sql_file, "r", encoding="utf-8") as f:

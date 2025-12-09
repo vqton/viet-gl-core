@@ -54,9 +54,7 @@ class TT99JournalEntryValidator(JournalEntryValidatorInterface):
             for credit_line in credit_lines:
                 self._check_reciprocal_rule(debit_line, credit_line)
 
-    def _check_reciprocal_rule(
-        self, debit_line: ButToanLine, credit_line: ButToanLine
-    ):
+    def _check_reciprocal_rule(self, debit_line: ButToanLine, credit_line: ButToanLine):
         """
         Kiểm tra tính hợp lệ của cặp đối ứng Nợ và Có.
 
@@ -81,11 +79,7 @@ class TT99JournalEntryValidator(JournalEntryValidatorInterface):
         group_co = tk_co.so_tai_khoan[0]
 
         # Quy tắc 1: Tiền mặt (111) không được đối ứng trực tiếp với Nguồn vốn chủ sở hữu (4xx).
-        if (
-            group_no == '1'
-            and tk_no.so_tai_khoan.startswith('111')
-            and group_co == '4'
-        ):
+        if group_no == "1" and tk_no.so_tai_khoan.startswith("111") and group_co == "4":
             raise ValueError(
                 f"Lỗi Đối ứng: TK Nợ {tk_no.so_tai_khoan} (Tiền mặt) không được đối ứng trực tiếp với TK Có {tk_co.so_tai_khoan} (Nguồn vốn CSH). Cần qua TK trung gian."
             )
@@ -99,13 +93,13 @@ class TT99JournalEntryValidator(JournalEntryValidatorInterface):
 
         # Quy tắc 3: Doanh thu (5xx, 7xx) không được đối ứng trực tiếp với Tiền (11x)
         if (
-            group_no in ['5', '7']
-            and group_co == '1'
-            and tk_co.so_tai_khoan.startswith('11')
+            group_no in ["5", "7"]
+            and group_co == "1"
+            and tk_co.so_tai_khoan.startswith("11")
         ) or (
-            group_co in ['5', '7']
-            and group_no == '1'
-            and tk_no.so_tai_khoan.startswith('11')
+            group_co in ["5", "7"]
+            and group_no == "1"
+            and tk_no.so_tai_khoan.startswith("11")
         ):
             # Tạm thời chỉ là cảnh báo, vì có thể có thu tiền ngay.
             print(

@@ -100,9 +100,7 @@ class JournalEntryRepository(JournalEntryRepositoryInterface):
         for sql_line in sql_je.lines:
             # Xác định transaction_type từ no/co
             tx_type = (
-                TransactionType.DEBIT
-                if sql_line.no > 0
-                else TransactionType.CREDIT
+                TransactionType.DEBIT if sql_line.no > 0 else TransactionType.CREDIT
             )
             amount = sql_line.no + sql_line.co
 
@@ -129,9 +127,7 @@ class JournalEntryRepository(JournalEntryRepositoryInterface):
             created_at=sql_je.ngay_ct,
         )
 
-    def get_all_posted_in_range(
-        self, start: date, end: date
-    ) -> List[GhiSoKeToan]:
+    def get_all_posted_in_range(self, start: date, end: date) -> List[GhiSoKeToan]:
         """Lấy tất cả bút toán đã ghi sổ trong khoảng thời gian."""
         sql_entries = (
             self.db_session.query(SQLJournalEntry)
@@ -182,9 +178,7 @@ class JournalEntryRepository(JournalEntryRepositoryInterface):
         lines_domain = []
         for sql_line in sql_je.lines:
             tx_type = (
-                TransactionType.DEBIT
-                if sql_line.no > 0
-                else TransactionType.CREDIT
+                TransactionType.DEBIT if sql_line.no > 0 else TransactionType.CREDIT
             )
             amount = sql_line.no + sql_line.co
             lines_domain.append(

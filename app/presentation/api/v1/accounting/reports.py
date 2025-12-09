@@ -19,16 +19,12 @@ from app.presentation.api.v1.accounting.dependencies import (
 router = APIRouter()
 
 
-@router.get(
-    "/reports/financial-position", response_model=BaoCaoTinhHinhTaiChinh
-)
+@router.get("/reports/financial-position", response_model=BaoCaoTinhHinhTaiChinh)
 def get_financial_position(
     ky_hieu: str,
     ngay_lap: date,
     ngay_ket_thuc: date,
-    service: FinancialPositionService = Depends(
-        get_financial_position_service
-    ),
+    service: FinancialPositionService = Depends(get_financial_position_service),
 ):
     return service.lay_bao_cao(ky_hieu, ngay_lap, ngay_ket_thuc)
 

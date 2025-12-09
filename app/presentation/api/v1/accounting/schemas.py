@@ -5,6 +5,7 @@ Schema chuẩn hóa cho API kế toán.
 - Validation nghiêm ngặt ở tầng API.
 - Tách biệt hoàn toàn với domain model.
 """
+
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
@@ -77,9 +78,7 @@ class JournalEntryCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     ngay_ct: date = Field(..., description="Ngày chứng từ")
-    so_phieu: str = Field(
-        ..., min_length=1, max_length=50, description="Số chứng từ"
-    )
+    so_phieu: str = Field(..., min_length=1, max_length=50, description="Số chứng từ")
     mo_ta: Optional[str] = Field(None, max_length=512)
     lines: List[JournalEntryLineSchema] = Field(..., min_items=2)
 

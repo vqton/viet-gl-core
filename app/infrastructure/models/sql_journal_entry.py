@@ -15,14 +15,12 @@ class SQLJournalEntryLine(Base):
     bắt buộc có so_chung_tu_goc và ngay_chung_tu_goc.
     """
 
-    __tablename__ = 'journal_entry_lines'
+    __tablename__ = "journal_entry_lines"
 
     id = Column(Integer, primary_key=True, index=True)
-    journal_entry_id = Column(
-        Integer, ForeignKey('journal_entries.id'), nullable=False
-    )
+    journal_entry_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=False)
     so_tai_khoan = Column(
-        String(20), ForeignKey('accounts.so_tai_khoan'), nullable=False
+        String(20), ForeignKey("accounts.so_tai_khoan"), nullable=False
     )
     no = Column(Numeric(precision=19, scale=4), nullable=False)
     co = Column(Numeric(precision=19, scale=4), nullable=False)
@@ -43,7 +41,7 @@ class SQLJournalEntry(Base):
     ánh xạ tới Entity 'JournalEntry' trong Domain.
     """
 
-    __tablename__ = 'journal_entries'
+    __tablename__ = "journal_entries"
 
     id = Column(Integer, primary_key=True, index=True)
     ngay_ct = Column(Date, nullable=False)

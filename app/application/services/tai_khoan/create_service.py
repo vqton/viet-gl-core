@@ -38,9 +38,7 @@ class CreateTaiKhoanService:
 
         # 3. Kiểm tra trùng số tài khoản
         if self.repo.get_by_id(tai_khoan.so_tai_khoan):
-            raise ValueError(
-                f"Số tài khoản '{tai_khoan.so_tai_khoan}' đã tồn tại."
-            )
+            raise ValueError(f"Số tài khoản '{tai_khoan.so_tai_khoan}' đã tồn tại.")
 
         logger.info(
             f"[TAO_TAI_KHOAN] So: {tai_khoan.so_tai_khoan}, Ten: {tai_khoan.ten_tai_khoan}"

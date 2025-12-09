@@ -2,6 +2,7 @@
 """
 [SRP] Service cho Bản thuyết minh BCTC (B09-DN).
 """
+
 from datetime import date
 
 from app.application.interfaces.report_repo import ReportRepositoryInterface

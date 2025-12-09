@@ -66,5 +66,5 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig()
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
     create_tables()

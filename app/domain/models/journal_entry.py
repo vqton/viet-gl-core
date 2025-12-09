@@ -3,6 +3,7 @@
 Domain models cho Bút toán kế toán (Journal Entry) theo TT99/2025/TT-BTC.
 [TT99-Đ10] Mọi dòng bút toán phải có chứng từ gốc (số và ngày).
 """
+
 import uuid
 from dataclasses import dataclass, field
 from datetime import date

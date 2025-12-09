@@ -13,13 +13,16 @@
       2. Kết chuyển Chi phí: Nợ 421 → Có các TK Chi phí
   - Trả về danh sách bút toán đã ghi sổ.
 """
+
 import logging
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List
 
 from app.application.interfaces.account_repo import AccountRepositoryInterface
-from app.application.interfaces.journal_entry_repo import JournalEntryRepositoryInterface
+from app.application.interfaces.journal_entry_repo import (
+    JournalEntryRepositoryInterface,
+)
 from app.domain.models.journal_entry import JournalEntry, JournalEntryLine
 
 logger = logging.getLogger(__name__)
@@ -44,9 +47,9 @@ class ClosingJournalEntryService:
 
         Quy trình nghiệp vụ:
         1. Chỉ xử lý các **bút toán đã ghi sổ (Posted)** trong kỳ.
-        2. **Doanh thu** (511, 512, 515): 
+        2. **Doanh thu** (511, 512, 515):
            - Phát sinh Có → kết chuyển bằng bút toán: **Nợ TK Doanh thu / Có 421**.
-        3. **Chi phí** (632, 641, 642, 635, 811, 821): 
+        3. **Chi phí** (632, 641, 642, 635, 811, 821):
            - Phát sinh Nợ → kết chuyển bằng bút toán: **Nợ 421 / Có TK Chi phí**.
         4. Không tạo bút toán nếu không có phát sinh.
 
@@ -82,11 +85,17 @@ class ClosingJournalEntryService:
 
         # → KẾT CHUYỂN DOANH THU: Nợ TK Doanh thu → Có 421
         if doanh_thu_tong > 0:
-            lines = [JournalEntryLine(so_tai_khoan="421", no=Decimal(0), co=doanh_thu_tong)]
+            lines = [
+                JournalEntryLine(so_tai_khoan="421", no=Decimal(0), co=doanh_thu_tong)
+            ]
             for tk in tk_doanh_thu:
-                ps_co = self._tinh_phat_sinh_tai_khoan(tk, "CO", ngay_bat_dau, ngay_ket_thuc)
+                ps_co = self._tinh_phat_sinh_tai_khoan(
+                    tk, "CO", ngay_bat_dau, ngay_ket_thuc
+                )
                 if ps_co > 0:
-                    lines.append(JournalEntryLine(so_tai_khoan=tk, no=ps_co, co=Decimal(0)))
+                    lines.append(
+                        JournalEntryLine(so_tai_khoan=tk, no=ps_co, co=Decimal(0))
+                    )
             bt = JournalEntry(
                 ngay_ct=ngay_ket_thuc,
                 so_phieu=f"KC-DOANH-THU-{ky_hieu}",
@@ -100,11 +109,17 @@ class ClosingJournalEntryService:
 
         # → KẾT CHUYỂN CHI PHÍ: Nợ 421 → Có TK Chi phí
         if chi_phi_tong > 0:
-            lines = [JournalEntryLine(so_tai_khoan="421", no=chi_phi_tong, co=Decimal(0))]
+            lines = [
+                JournalEntryLine(so_tai_khoan="421", no=chi_phi_tong, co=Decimal(0))
+            ]
             for tk in tk_chi_phi:
-                ps_no = self._tinh_phat_sinh_tai_khoan(tk, "NO", ngay_bat_dau, ngay_ket_thuc)
+                ps_no = self._tinh_phat_sinh_tai_khoan(
+                    tk, "NO", ngay_bat_dau, ngay_ket_thuc
+                )
                 if ps_no > 0:
-                    lines.append(JournalEntryLine(so_tai_khoan=tk, no=Decimal(0), co=ps_no))
+                    lines.append(
+                        JournalEntryLine(so_tai_khoan=tk, no=Decimal(0), co=ps_no)
+                    )
             bt = JournalEntry(
                 ngay_ct=ngay_ket_thuc,
                 so_phieu=f"KC-CHI-PHI-{ky_hieu}",

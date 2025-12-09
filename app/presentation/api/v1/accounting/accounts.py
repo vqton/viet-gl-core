@@ -34,9 +34,7 @@ from app.presentation.api.v1.accounting.schemas import (
 router = APIRouter(prefix="/accounts", tags=["Accounting - COA"])
 
 
-@router.post(
-    "", response_model=TaiKhoanDomain, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=TaiKhoanDomain, status_code=status.HTTP_201_CREATED)
 def tao_tai_khoan(
     request: CreateTaiKhoanRequest,  # ✅ Thay bằng request model
     service: CreateTaiKhoanService = Depends(get_create_tai_khoan_service),

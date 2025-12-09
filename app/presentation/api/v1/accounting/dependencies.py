@@ -8,6 +8,7 @@ Dependency Injection (DI) container cho các service kế toán theo TT99/2025/T
 - Dễ dàng mock trong test bằng cách override function này.
 - Tách biệt logic khởi tạo khỏi logic nghiệp vụ (SRP).
 """
+
 from typing import Generator
 from unittest.mock import Mock
 
@@ -74,9 +75,7 @@ def get_period_service_factory(
 
     period_repo = AccountingPeriodRepository(db)
     je_repo = JournalEntryRepository(db)
-    return AccountingPeriodServiceFactory(
-        period_repo=period_repo, je_repo=je_repo
-    )
+    return AccountingPeriodServiceFactory(period_repo=period_repo, je_repo=je_repo)
 
 
 def get_report_service_factory(
@@ -144,9 +143,7 @@ def get_delete_tai_khoan_service(
 
 
 def get_create_period_service(
-    factory: AccountingPeriodServiceFactory = Depends(
-        get_period_service_factory
-    ),
+    factory: AccountingPeriodServiceFactory = Depends(get_period_service_factory),
 ):
     """
     [SRP] Service chỉ để tạo kỳ kế toán.
@@ -155,9 +152,7 @@ def get_create_period_service(
 
 
 def get_lock_period_service(
-    factory: AccountingPeriodServiceFactory = Depends(
-        get_period_service_factory
-    ),
+    factory: AccountingPeriodServiceFactory = Depends(get_period_service_factory),
 ):
     """
     [SRP] Service chỉ để khóa kỳ kế toán.
@@ -166,9 +161,7 @@ def get_lock_period_service(
 
 
 def get_unlock_period_service(
-    factory: AccountingPeriodServiceFactory = Depends(
-        get_period_service_factory
-    ),
+    factory: AccountingPeriodServiceFactory = Depends(get_period_service_factory),
 ):
     """
     [SRP] Service chỉ để mở kỳ kế toán.
@@ -177,9 +170,7 @@ def get_unlock_period_service(
 
 
 def get_query_period_service(
-    factory: AccountingPeriodServiceFactory = Depends(
-        get_period_service_factory
-    ),
+    factory: AccountingPeriodServiceFactory = Depends(get_period_service_factory),
 ):
     """
     [SRP] Service chỉ để truy vấn kỳ kế toán.
@@ -258,32 +249,24 @@ def get_journaling_service_factory(
 
 
 def get_create_journal_service(
-    factory: JournalingServiceFactory = Depends(
-        get_journaling_service_factory
-    ),
+    factory: JournalingServiceFactory = Depends(get_journaling_service_factory),
 ):
     return factory.create_create_service()
 
 
 def get_posting_journal_service(
-    factory: JournalingServiceFactory = Depends(
-        get_journaling_service_factory
-    ),
+    factory: JournalingServiceFactory = Depends(get_journaling_service_factory),
 ):
     return factory.create_posting_service()
 
 
 def get_query_journal_service(
-    factory: JournalingServiceFactory = Depends(
-        get_journaling_service_factory
-    ),
+    factory: JournalingServiceFactory = Depends(get_journaling_service_factory),
 ):
     return factory.create_query_service()
 
 
 def get_closing_journal_service(
-    factory: JournalingServiceFactory = Depends(
-        get_journaling_service_factory
-    ),
+    factory: JournalingServiceFactory = Depends(get_journaling_service_factory),
 ):
     return factory.create_closing_service()

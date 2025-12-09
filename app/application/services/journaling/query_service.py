@@ -7,6 +7,7 @@ Không tạo, sửa, xóa, ghi sổ.
 - Cung cấp các hàm như: lấy bút toán theo ID, theo kỳ, theo tài khoản, danh sách, v.v.
 - Không can thiệp vào nghiệp vụ ghi sổ hoặc kết chuyển.
 """
+
 from datetime import date
 from typing import List, Optional
 
@@ -60,6 +61,4 @@ class QueryJournalEntryService:
         Lấy bút toán theo trạng thái (Draft, Posted, Locked).
         """
         all_entries = self.repo.get_all()
-        return [
-            entry for entry in all_entries if entry.trang_thai == trang_thai
-        ]
+        return [entry for entry in all_entries if entry.trang_thai == trang_thai]

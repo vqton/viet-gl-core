@@ -13,6 +13,7 @@ API Endpoints cho quản lý Bút toán kế toán (Journal Entries) theo TT99/2
 - Mỗi endpoint gọi đúng service nhỏ (SRP).
 - Đảm bảo DI hoạt động chính xác.
 """
+
 from datetime import date
 from typing import List
 
@@ -38,14 +39,10 @@ from app.presentation.api.v1.accounting.dependencies import (
     get_query_journal_service,
 )
 
-router = APIRouter(
-    prefix="/journal-entries", tags=["Accounting - Journal Entries"]
-)
+router = APIRouter(prefix="/journal-entries", tags=["Accounting - Journal Entries"])
 
 
-@router.post(
-    "", response_model=JournalEntryDomain, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=JournalEntryDomain, status_code=status.HTTP_201_CREATED)
 def tao_phieu_ke_toan(
     entry: JournalEntryDomain,
     service: CreateJournalEntryService = Depends(
@@ -129,21 +126,15 @@ def huy_ghi_so_phieu_ke_toan(
     - Không được phép nếu đã có bút toán kết chuyển sau kỳ đó.
     """
     try:
-        return service.unpost(
-            id
-        )  # Nếu bạn có phương thức unpost trong PostingService
+        return service.unpost(id)  # Nếu bạn có phương thức unpost trong PostingService
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/end-of-period-close")
 def ket_chuyen_cuoi_ky(
-    ky_hieu: str = Query(
-        ..., description="Ký hiệu kỳ kế toán (ví dụ: 'Năm 2025')"
-    ),
-    ngay_ket_chuyen: date = Query(
-        ..., description="Ngày thực hiện kết chuyển"
-    ),
+    ky_hieu: str = Query(..., description="Ký hiệu kỳ kế toán (ví dụ: 'Năm 2025')"),
+    ngay_ket_chuyen: date = Query(..., description="Ngày thực hiện kết chuyển"),
     service: ClosingJournalEntryService = Depends(
         get_closing_journal_service
     ),  # ✅ Service kết chuyển
@@ -154,9 +145,7 @@ def ket_chuyen_cuoi_ky(
     - Kết chuyển Doanh thu/Chi phí → Lợi nhuận sau thuế (421).
     """
     try:
-        ket_chuyen = service.execute(
-            ky_hieu=ky_hieu, ngay_ket_chuyen=ngay_ket_chuyen
-        )
+        ket_chuyen = service.execute(ky_hieu=ky_hieu, ngay_ket_chuyen=ngay_ket_chuyen)
         return {
             "message": f"Kết chuyển kỳ '{ky_hieu}' thành công.",
             "so_bu_toan_ket_chuyen": len(ket_chuyen),

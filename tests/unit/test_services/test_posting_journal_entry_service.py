@@ -98,8 +98,8 @@ class TestPostingJournalEntryService:
         mock_repo.get_by_id.return_value = DRAFT_ENTRY.model_copy()
         # Giả lập: check_if_period_is_locked ném ra lỗi (để mô phỏng kỳ bị khóa)
         # Lưu ý: Trong thực tế, Period Service nên ném ra một exception cụ thể.
-        posting_service.period_service.check_if_period_is_locked.side_effect = ValueError(
-            "Kỳ kế toán đã bị khóa."
+        posting_service.period_service.check_if_period_is_locked.side_effect = (
+            ValueError("Kỳ kế toán đã bị khóa.")
         )
 
         with pytest.raises(ValueError) as excinfo:

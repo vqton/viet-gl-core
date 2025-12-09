@@ -65,6 +65,4 @@ class TaiKhoan:
         if self.so_tai_khoan_cha and not self.so_tai_khoan.startswith(
             self.so_tai_khoan_cha
         ):
-            raise ValueError(
-                "Số tài khoản con phải bắt đầu bằng số tài khoản cha."
-            )
+            raise ValueError("Số tài khoản con phải bắt đầu bằng số tài khoản cha.")

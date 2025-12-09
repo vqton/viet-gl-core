@@ -68,9 +68,7 @@ class ReportingRepositoryImpl(ReportingRepository):
 
     def _map_sql_to_domain(self, sql_entry) -> JournalEntry:
         lines = [
-            JournalEntryLine(
-                so_tai_khoan=line.so_tai_khoan, no=line.no, co=line.co
-            )
+            JournalEntryLine(so_tai_khoan=line.so_tai_khoan, no=line.no, co=line.co)
             for line in sql_entry.lines
         ]
         return JournalEntry(

@@ -11,6 +11,7 @@ API Endpoints cho quản lý Kỳ Kế Toán (Accounting Periods).
 - Dễ mock trong test → dễ bảo trì.
 - Tuân thủ nguyên tắc DIP (Dependency Inversion Principle).
 """
+
 from datetime import date
 from typing import List
 
@@ -47,23 +48,17 @@ from app.presentation.api.v1.accounting.dependencies import (  # ✅ SỬA: Impo
 
 
 # Tạo router cho nhóm API kỳ kế toán
-router = APIRouter(
-    prefix="/accounting-periods", tags=["Accounting - Period Control"]
-)
+router = APIRouter(prefix="/accounting-periods", tags=["Accounting - Period Control"])
 
 
 # --- 1. TẠO KỲ KẾ TOÁN ---
 
 
-@router.post(
-    "", response_model=KyKeToanDomain, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=KyKeToanDomain, status_code=status.HTTP_201_CREATED)
 def tao_ky_ke_toan(
     payload: KyKeToanDomain,
     # ✅ SỬA: Dùng đúng tên service + interface (nếu có)
-    service: CreateAccountingPeriodService = Depends(
-        get_create_period_service
-    ),
+    service: CreateAccountingPeriodService = Depends(get_create_period_service),
 ):
     """
     [TT99-Đ25] Tạo mới một kỳ kế toán.
@@ -155,9 +150,7 @@ def khoa_ky_ke_toan(
                 detail="Không thể khóa kỳ (có thể đã bị khóa hoặc còn bút toán Draft).",
             )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # --- 4. MỞ KỲ KẾ TOÁN ---
@@ -168,9 +161,7 @@ def mo_ky_ke_toan(
     id: int,
     ly_do: str = Body(..., embed=True, description="Lý do mở kỳ (bắt buộc)"),
     nguoi_thuc_hien: str = Body(default="System", embed=True),
-    service: UnlockAccountingPeriodService = Depends(
-        get_unlock_period_service
-    ),
+    service: UnlockAccountingPeriodService = Depends(get_unlock_period_service),
 ):
     """
     [TT99-Đ25] Mở lại kỳ kế toán đã khóa.
@@ -187,9 +178,7 @@ def mo_ky_ke_toan(
     - Trả về thông báo thành công.
     """
     try:
-        success = service.execute(
-            id, ly_do=ly_do, nguoi_thuc_hien=nguoi_thuc_hien
-        )
+        success = service.execute(id, ly_do=ly_do, nguoi_thuc_hien=nguoi_thuc_hien)
         if success:
             return {
                 "message": f"Kỳ {id} đã được mở thành công.",
@@ -201,6 +190,4 @@ def mo_ky_ke_toan(
                 detail="Không thể mở kỳ (có thể kỳ không ở trạng thái 'Locked').",
             )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
