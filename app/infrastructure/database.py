@@ -55,6 +55,7 @@ def create_tables():
     Chỉ nên dùng cho dev hoặc khởi tạo DB mới.
     """
     Base.metadata.create_all(bind=engine)
+    print("Đã tạo bảng:", [t.name for t in Base.metadata.sorted_tables])
     print("Các bảng đã được tạo (hoặc đã tồn tại).")
 
 

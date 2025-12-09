@@ -1,14 +1,27 @@
 -- ===================================================================
--- BƯỚC 1: DỌN SẠCH DỮ LIỆU CŨ
+-- COA SETUP SCRIPT - Phụ lục II TT99/2025/TT-BTC
+-- File: coa_setup_v1.0_tt99_2025.sql
+-- Version: 1.0
+-- Ngày: 2025-12-09
+-- Tác giả: DBA Team
+-- Mô tả: Tạo ENUM, bảng accounts, insert COA chuẩn TT99/2025/TT-BTC
+-- Yêu cầu: PostgreSQL 12+
 -- ===================================================================
-DROP TABLE IF EXISTS "JournalEntryLines";
-DROP TABLE IF EXISTS "JournalEntries";
-DROP TABLE IF EXISTS "KyKeToan";
-DROP TABLE IF EXISTS "accounts";
-DROP TYPE IF EXISTS loaitaikhoan;
+
+-- Bắt đầu transaction toàn cục
+BEGIN;
 
 -- ===================================================================
--- BƯỚC 2: TẠO ENUM MỚI – đúng theo domain model của bạn
+-- BƯỚC 1: DỌN SẠCH DỮ LIỆU CŨ (an toàn với CASCADE)
+-- ===================================================================
+DROP TABLE IF EXISTS "JournalEntryLines" CASCADE;
+DROP TABLE IF EXISTS "JournalEntries" CASCADE;
+DROP TABLE IF EXISTS "KyKeToan" CASCADE;
+DROP TABLE IF EXISTS accounts CASCADE;
+DROP TYPE IF EXISTS loaitaikhoan CASCADE;
+
+-- ===================================================================
+-- BƯỚC 2: TẠO ENUM LOẠI TÀI KHOẢN
 -- ===================================================================
 CREATE TYPE loaitaikhoan AS ENUM (
     'TAI_SAN',
@@ -21,20 +34,33 @@ CREATE TYPE loaitaikhoan AS ENUM (
 -- ===================================================================
 -- BƯỚC 3: TẠO BẢNG accounts
 -- ===================================================================
-CREATE TABLE IF NOT EXISTS "accounts" (
+CREATE TABLE IF NOT EXISTS accounts (
     so_tai_khoan VARCHAR(20) PRIMARY KEY,
     ten_tai_khoan VARCHAR(256) NOT NULL,
     loai_tai_khoan loaitaikhoan NOT NULL,
-    cap_tai_khoan INTEGER NOT NULL DEFAULT 1 CHECK (cap_tai_khoan BETWEEN 1 AND 5),
-    so_tai_khoan_cha VARCHAR(20) REFERENCES "accounts"(so_tai_khoan),
-    la_tai_khoan_tong_hop BOOLEAN NOT NULL DEFAULT TRUE
+    cap_tai_khoan INTEGER NOT NULL 
+        DEFAULT 1 
+        CHECK (cap_tai_khoan BETWEEN 1 AND 5),
+    so_tai_khoan_cha VARCHAR(20),
+    la_tai_khoan_tong_hop BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- FK tự tham chiếu, deferrable để insert an toàn
+    CONSTRAINT fk_parent 
+        FOREIGN KEY (so_tai_khoan_cha) 
+        REFERENCES accounts(so_tai_khoan)
+        DEFERRABLE INITIALLY DEFERRED
 );
 
 -- ===================================================================
 -- BƯỚC 4: CHÈN DỮ LIỆU COA – PHỤ LỤC II TT99/2025/TT-BTC
 -- ===================================================================
-INSERT INTO "accounts" (
-    so_tai_khoan, ten_tai_khoan, loai_tai_khoan, cap_tai_khoan, so_tai_khoan_cha, la_tai_khoan_tong_hop
+INSERT INTO accounts (
+    so_tai_khoan, 
+    ten_tai_khoan, 
+    loai_tai_khoan, 
+    cap_tai_khoan, 
+    so_tai_khoan_cha, 
+    la_tai_khoan_tong_hop
 ) VALUES
 -- ===================================================================
 -- TÀI SẢN NGẮN HẠN (1xx)
@@ -204,4 +230,31 @@ INSERT INTO "accounts" (
 ('003', 'Hàng hóa nhận bán đại lý, ký gửi', 'KHAC', 1, NULL, FALSE),
 ('004', 'Nợ khó đòi đã xử lý', 'KHAC', 1, NULL, FALSE),
 ('007', 'Ngoại tệ các loại', 'KHAC', 1, NULL, FALSE),
-('911', 'Xác định kết quả kinh doanh', 'KHAC', 1, NULL, FALSE);
+('911', 'Xác định kết quả kinh doanh', 'KHAC', 1, NULL, FALSE)
+
+ON CONFLICT (so_tai_khoan) DO NOTHING;
+
+-- ===================================================================
+-- BƯỚC 5: LOG KẾT QUẢ
+-- ===================================================================
+DO $$
+DECLARE
+    total INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO total FROM accounts;
+    RAISE NOTICE 'COA đã được khởi tạo thành công: % tài khoản được đồng bộ.', total;
+END $$;
+
+-- Kết thúc transaction
+COMMIT;
+
+-- ===================================================================
+-- HƯỚNG DẪN KIỂM TRA SAU KHI CHẠY
+-- ===================================================================
+/*
+SELECT COUNT(*) FROM accounts;
+SELECT so_tai_khoan, ten_tai_khoan, cap_tai_khoan, so_tai_khoan_cha 
+FROM accounts 
+WHERE so_tai_khoan LIKE '333%' 
+ORDER BY so_tai_khoan;
+*/
