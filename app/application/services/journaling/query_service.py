@@ -61,4 +61,6 @@ class QueryJournalEntryService:
         Lấy bút toán theo trạng thái (Draft, Posted, Locked).
         """
         all_entries = self.repo.get_all()
-        return [entry for entry in all_entries if entry.trang_thai == trang_thai]
+        return [
+            entry for entry in all_entries if entry.trang_thai == trang_thai
+        ]

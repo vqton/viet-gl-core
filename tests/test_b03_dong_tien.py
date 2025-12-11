@@ -1,14 +1,15 @@
 # tests/test_b03_dong_tien.py
-import pytest
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from app.application.services.reports.cash_flow_service import CashFlowService
 from app.domain.models.journal_entry import (
-    GhiSoKeToan,
     ButToanLine,
-    TransactionType,
     DetailObjectType,
+    GhiSoKeToan,
+    TransactionType,
 )
 
 
@@ -71,7 +72,9 @@ def mock_repo(mocker):
 
 def test_b03_tien_lai_vay_da_tra(mock_repo):
     # Arrange
-    service = CashFlowService(repo=mock_repo, performance_service=mocker.Mock())
+    service = CashFlowService(
+        repo=mock_repo, performance_service=mocker.Mock()
+    )
 
     # Act
     b03 = service.lay_bao_cao(
@@ -79,12 +82,16 @@ def test_b03_tien_lai_vay_da_tra(mock_repo):
     )
 
     # Assert
-    assert b03.luu_chuyen_tien_te_hdkd.tien_chi_tra_lai_vay == Decimal("5000000")
+    assert b03.luu_chuyen_tien_te_hdkd.tien_chi_tra_lai_vay == Decimal(
+        "5000000"
+    )
 
 
 def test_b03_tien_thue_thu_nhap_da_nop(mock_repo):
     # Arrange
-    service = CashFlowService(repo=mock_repo, performance_service=mocker.Mock())
+    service = CashFlowService(
+        repo=mock_repo, performance_service=mocker.Mock()
+    )
 
     # Act
     b03 = service.lay_bao_cao(
@@ -92,4 +99,6 @@ def test_b03_tien_thue_thu_nhap_da_nop(mock_repo):
     )
 
     # Assert
-    assert b03.luu_chuyen_tien_te_hdkd.tien_thue_thu_nhap_da_nop == Decimal("10000000")
+    assert b03.luu_chuyen_tien_te_hdkd.tien_thue_thu_nhap_da_nop == Decimal(
+        "10000000"
+    )

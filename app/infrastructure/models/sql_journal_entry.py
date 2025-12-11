@@ -2,6 +2,7 @@
 
 from sqlalchemy import Column, Date, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
+
 from app.infrastructure.base import Base
 from app.infrastructure.models.sql_account import SQLAccount
 
@@ -18,7 +19,9 @@ class SQLJournalEntryLine(Base):
     __tablename__ = "journal_entry_lines"
 
     id = Column(Integer, primary_key=True, index=True)
-    journal_entry_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=False)
+    journal_entry_id = Column(
+        Integer, ForeignKey("journal_entries.id"), nullable=False
+    )
     so_tai_khoan = Column(
         String(20), ForeignKey("accounts.so_tai_khoan"), nullable=False
     )

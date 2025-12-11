@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise ValueError("Biến môi trường DATABASE_URL chưa được thiết lập trong file .env")
+    raise ValueError(
+        "Biến môi trường DATABASE_URL chưa được thiết lập trong file .env"
+    )
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -53,8 +55,12 @@ app.include_router(reporting_router, prefix="/api/v1")
 # [TT99 Điều 3] Yêu cầu kiểm soát nội bộ nghiêm ngặt → Không để lộ thông tin hệ thống ra client
 # ---
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logging.warning(f"Dữ liệu đầu vào không hợp lệ từ {request.url}: {exc.errors()}")
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+):
+    logging.warning(
+        f"Dữ liệu đầu vào không hợp lệ từ {request.url}: {exc.errors()}"
+    )
     return JSONResponse(
         status_code=400,
         content={
@@ -65,9 +71,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    logging.warning(f"Lỗi HTTP {exc.status_code} tại {request.url}: {exc.detail}")
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+):
+    logging.warning(
+        f"Lỗi HTTP {exc.status_code} tại {request.url}: {exc.detail}"
+    )
+    return JSONResponse(
+        status_code=exc.status_code, content={"detail": exc.detail}
+    )
 
 
 @app.exception_handler(Exception)

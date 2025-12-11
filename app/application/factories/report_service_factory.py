@@ -73,8 +73,13 @@ class ReportServiceFactory:
     # --------------------------------------------------------
     # BÁO CÁO B09 – Thuyết minh BCTC
     # --------------------------------------------------------
+    # Trong ReportServiceFactory
     def create_disclosure_service(self) -> DisclosureService:
+        """
+        [TT99-PL4] Tạo DisclosureService với đầy đủ dependency vào các báo cáo B01, B02, B03.
+        """
         return DisclosureService(
-            journal_repo=self._je_repo,
-            account_repo=self._acc_repo,
+            financial_position_service=self.create_financial_position_service(),
+            performance_service=self.create_performance_service(),
+            cash_flow_service=self.create_cash_flow_service(),
         )

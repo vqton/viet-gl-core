@@ -28,7 +28,9 @@ class SQLAccount(Base):
     la_tai_khoan_tong_hop = Column(Boolean, nullable=False, default=True)
 
     # Self relationship (optional)
-    parent = relationship("SQLAccount", remote_side=[so_tai_khoan], backref="children")
+    parent = relationship(
+        "SQLAccount", remote_side=[so_tai_khoan], backref="children"
+    )
 
     def __repr__(self):
         return f"<SQLAccount {self.so_tai_khoan} - {self.ten_tai_khoan}>"

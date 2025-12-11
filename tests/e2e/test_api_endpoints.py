@@ -52,7 +52,9 @@ def client_with_mock_create_account_service():
     )
 
     mock_service = MagicMock()
-    app.dependency_overrides[get_create_tai_khoan_service] = lambda: mock_service
+    app.dependency_overrides[get_create_tai_khoan_service] = (
+        lambda: mock_service
+    )
 
     with TestClient(app) as client:
         yield client, mock_service
@@ -243,7 +245,9 @@ def test_get_financial_position_report_success(
     """
     [TT99-PL4] Test lấy báo cáo tình hình tài chính (B01-DN).
     """
-    client, _ = client_with_mock_create_account_service  # ✅ SỬA: dùng fixture đúng
+    client, _ = (
+        client_with_mock_create_account_service  # ✅ SỬA: dùng fixture đúng
+    )
 
     from app.application.services.reports.financial_position_service import (
         FinancialPositionService,
@@ -254,7 +258,9 @@ def test_get_financial_position_report_success(
         get_financial_position_service,
     )
 
-    app.dependency_overrides[get_financial_position_service] = lambda: mock_service
+    app.dependency_overrides[get_financial_position_service] = (
+        lambda: mock_service
+    )
 
     fake_report = BaoCaoTinhHinhTaiChinh(
         ngay_lap=date.today(),
@@ -276,9 +282,13 @@ def test_get_financial_position_report_success(
             tong_cong_tai_san=Decimal("200000000"),
         ),
         nguon_von=TongNguonVon(
-            no_phai_tra_ngan_han=NoPhaiTraNganHan(tong_no_ngan_han=Decimal("50000000")),
+            no_phai_tra_ngan_han=NoPhaiTraNganHan(
+                tong_no_ngan_han=Decimal("50000000")
+            ),
             no_phai_tra_dai_han=NoPhaiTraDaiHan(tong_no_dai_han=Decimal("0")),
-            von_chu_so_huu=VonChuSoHuu(tong_von_chu_so_huu=Decimal("150000000")),
+            von_chu_so_huu=VonChuSoHuu(
+                tong_von_chu_so_huu=Decimal("150000000")
+            ),
             tong_cong_nguon_von=Decimal("200000000"),
         ),
     )

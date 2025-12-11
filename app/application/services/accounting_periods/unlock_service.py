@@ -22,7 +22,9 @@ class UnlockAccountingPeriodService:
     def __init__(self, repo: AccountingPeriodRepositoryInterface):
         self.repo = repo
 
-    def execute(self, id: int, ly_do: str, nguoi_thuc_hien: str = "System") -> bool:
+    def execute(
+        self, id: int, ly_do: str, nguoi_thuc_hien: str = "System"
+    ) -> bool:
         """
         Mở kỳ kế toán đã khóa.
 

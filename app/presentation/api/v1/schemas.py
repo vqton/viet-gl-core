@@ -61,7 +61,9 @@ class TaiKhoanRead(TaiKhoanCreate):
 class KyKeToanCreate(BaseSchema):
     """Schema cho việc tạo mới Kỳ kế toán."""
 
-    ten_ky: str = Field(..., max_length=100, description="Ví dụ: 'Q4-2025', 'Năm 2026'")
+    ten_ky: str = Field(
+        ..., max_length=100, description="Ví dụ: 'Q4-2025', 'Năm 2026'"
+    )
     ngay_bat_dau: date = Field(..., description="Ngày bắt đầu kỳ")
     ngay_ket_thuc: date = Field(..., description="Ngày kết thúc kỳ")
     ghi_chu: Optional[str] = Field(None, max_length=512)
@@ -71,7 +73,9 @@ class KyKeToanRead(KyKeToanCreate):
     """Schema cho việc đọc thông tin Kỳ kế toán."""
 
     id: int
-    trang_thai: str = Field(..., description="Trạng thái: 'Open' hoặc 'Locked'")
+    trang_thai: str = Field(
+        ..., description="Trạng thái: 'Open' hoặc 'Locked'"
+    )
     # Thừa kế các trường còn lại từ KyKeToanCreate
 
 
@@ -86,8 +90,12 @@ class JournalEntryLineSchema(BaseSchema):
     so_tai_khoan: str = Field(
         ..., max_length=20, description="Số tài khoản ghi Nợ hoặc Có"
     )
-    no: Decimal = Field(Decimal(0), ge=Decimal(0), description="Số tiền ghi Nợ")
-    co: Decimal = Field(Decimal(0), ge=Decimal(0), description="Số tiền ghi Có")
+    no: Decimal = Field(
+        Decimal(0), ge=Decimal(0), description="Số tiền ghi Nợ"
+    )
+    co: Decimal = Field(
+        Decimal(0), ge=Decimal(0), description="Số tiền ghi Có"
+    )
     mo_ta: Optional[str] = Field(
         None, max_length=256, description="Mô tả chi tiết dòng (tùy chọn)"
     )
@@ -114,7 +122,9 @@ class JournalEntryRead(JournalEntryCreate):
     """Schema cho việc đọc thông tin Bút toán."""
 
     id: int
-    trang_thai: str = Field(..., description="Trạng thái: 'Draft', 'Posted', 'Locked'")
+    trang_thai: str = Field(
+        ..., description="Trạng thái: 'Draft', 'Posted', 'Locked'"
+    )
     lines: List[JournalEntryLineSchema]  # Sử dụng lại dòng bút toán schema
     # Thừa kế các trường còn lại từ JournalEntryCreate
 

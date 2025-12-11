@@ -9,7 +9,8 @@ Schema chuẩn hóa cho API kế toán.
 from datetime import date
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 # Import enum từ domain để validation
 from app.domain.models.account import LoaiTaiKhoan
@@ -78,7 +79,9 @@ class JournalEntryCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     ngay_ct: date = Field(..., description="Ngày chứng từ")
-    so_phieu: str = Field(..., min_length=1, max_length=50, description="Số chứng từ")
+    so_phieu: str = Field(
+        ..., min_length=1, max_length=50, description="Số chứng từ"
+    )
     mo_ta: Optional[str] = Field(None, max_length=512)
     lines: List[JournalEntryLineSchema] = Field(..., min_items=2)
 

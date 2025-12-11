@@ -15,7 +15,9 @@ class ReportRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    def get_all_posted_in_range(self, start: date, end: date) -> List[JournalEntry]:
+    def get_all_posted_in_range(
+        self, start: date, end: date
+    ) -> List[JournalEntry]:
         """
         Lấy tất cả các bút toán đã ghi sổ trong khoảng thời gian.
         """

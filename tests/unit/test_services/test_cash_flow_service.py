@@ -35,10 +35,14 @@ def create_entry(
     if diff > 0:
         if tong_no > tong_co:
             # Nợ > Có, cần thêm vào bên Có
-            lines.append(JournalEntryLine(so_tai_khoan="999", no=Decimal(0), co=diff))
+            lines.append(
+                JournalEntryLine(so_tai_khoan="999", no=Decimal(0), co=diff)
+            )
         elif tong_co > tong_no:
             # Có > Nợ, cần thêm vào bên Nợ
-            lines.append(JournalEntryLine(so_tai_khoan="999", no=diff, co=Decimal(0)))
+            lines.append(
+                JournalEntryLine(so_tai_khoan="999", no=diff, co=Decimal(0))
+            )
 
     # Tạo đối tượng JournalEntry đã cân bằng
     return JournalEntry(
@@ -91,7 +95,9 @@ def test_tinh_phat_sinh_tai_khoan_ps_no_chinh_xac(setup_service):
     ]
 
     # Tính tổng PS NỢ TK 112: 100 + 50 = 150
-    ps_no_112 = service._tinh_phat_sinh_tai_khoan("112", "NO", START_DATE, END_DATE)
+    ps_no_112 = service._tinh_phat_sinh_tai_khoan(
+        "112", "NO", START_DATE, END_DATE
+    )
     assert ps_no_112 == Decimal(150)
 
 
@@ -155,7 +161,9 @@ def test_tinh_loi_nhuan_truoc_thue_lay_tu_b02(setup_service):
     # Sửa từ 'tong_loi_nhuan_truoc_thue' (gây lỗi) thành 'loi_nhuan_truoc_thue' (theo gợi ý lỗi)
     # Lưu ý: Nếu model thực sự là 'tong_loi_nhuan_truoc_thue' thì cần kiểm tra lại model
     # Nhưng để giải quyết lỗi hiện tại, ta dùng 'loi_nhuan_truoc_thue'
-    mock_b02.loi_nhuan_sau_thue = Decimal("123456789")  # Tạm dùng thuộc tính này
+    mock_b02.loi_nhuan_sau_thue = Decimal(
+        "123456789"
+    )  # Tạm dùng thuộc tính này
     mock_b02.tong_loi_nhuan_truoc_thue = Decimal(
         "123456789"
     )  # Giữ lại thuộc tính đúng của Model (Nếu test fail do mock, thì sửa mock)
@@ -163,11 +171,15 @@ def test_tinh_loi_nhuan_truoc_thue_lay_tu_b02(setup_service):
     # Đã xác nhận trong file service sử dụng tong_loi_nhuan_truoc_thue. Sửa lỗi ở đây
     # Giả sử tên thuộc tính đúng theo error là 'loi_nhuan_truoc_thue' và service cần được sửa theo
     # Vì service đang dùng tong_loi_nhuan_truoc_thue, tôi sẽ sửa mock để nó hoạt động
-    mock_b02.tong_loi_nhuan_truoc_thue = Decimal("123456789")  # <-- Sửa lại mock
+    mock_b02.tong_loi_nhuan_truoc_thue = Decimal(
+        "123456789"
+    )  # <-- Sửa lại mock
     mock_performance_service.lay_bao_cao.return_value = mock_b02
 
     # ACTION
-    loi_nhuan = service._tinh_loi_nhuan_truoc_thue("Q1", END_DATE, START_DATE, END_DATE)
+    loi_nhuan = service._tinh_loi_nhuan_truoc_thue(
+        "Q1", END_DATE, START_DATE, END_DATE
+    )
 
     # ASSERT
     assert loi_nhuan == Decimal("123456789")
@@ -230,7 +242,9 @@ def test_lay_bao_cao_tinh_cuoi_ky_chinh_xac(setup_service):
         JournalEntryLine(
             so_tai_khoan="156", no=Decimal(120), co=Decimal(0)
         ),  # Nhập kho
-        JournalEntryLine(so_tai_khoan="156", no=Decimal(0), co=Decimal(20)),  # Xuất kho
+        JournalEntryLine(
+            so_tai_khoan="156", no=Decimal(0), co=Decimal(20)
+        ),  # Xuất kho
         JournalEntryLine(
             so_tai_khoan="331", no=Decimal(0), co=Decimal(100)
         ),  # Đối ứng cho 214 và 156 (Nợ 120 = Có 100+20)
@@ -259,7 +273,10 @@ def test_lay_bao_cao_tinh_cuoi_ky_chinh_xac(setup_service):
 
     # ASSERT
     # I. Lưu chuyển tiền thuần từ HĐKD (Mã số 20)
-    assert report.luu_chuyen_tien_te_hdkd.luu_chuyen_tien_thuan_tu_hdkd == Decimal(500)
+    assert (
+        report.luu_chuyen_tien_te_hdkd.luu_chuyen_tien_thuan_tu_hdkd
+        == Decimal(500)
+    )
     # IV. Lưu chuyển tiền thuần trong kỳ (Mã số 50)
     assert report.luu_chuyen_tien_thuan_trong_ky == Decimal(500)
     # V. Tiền và tương đương tiền đầu kỳ (Mã số 60)

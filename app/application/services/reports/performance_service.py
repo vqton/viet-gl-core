@@ -2,6 +2,7 @@
 from datetime import date
 from decimal import Decimal
 from typing import List
+
 from app.application.interfaces.journal_entry_repo import (
     JournalEntryRepositoryInterface,
 )
@@ -13,7 +14,9 @@ class PerformanceService:
         self.repo = repo
         # acc_repo không dùng trong B02, nhưng giữ để tương thích DI
 
-    def _tinh_phat_sinh(self, tk: str, loai: str, start: date, end: date) -> Decimal:
+    def _tinh_phat_sinh(
+        self, tk: str, loai: str, start: date, end: date
+    ) -> Decimal:
         ps = Decimal(0)
         for entry in self.repo.get_all_posted_in_range(start, end):
             for line in entry.lines:
@@ -46,7 +49,9 @@ class PerformanceService:
         chi_phi_bh = self._tinh_phat_sinh("641", "NO", start, end)
         # 6. Chi phí QLDN (642)
         chi_phi_qldn = self._tinh_phat_sinh("642", "NO", start, end)
-        loi_nhuan_thuan = loi_nhuan_gop - chi_phi_tc - chi_phi_bh - chi_phi_qldn
+        loi_nhuan_thuan = (
+            loi_nhuan_gop - chi_phi_tc - chi_phi_bh - chi_phi_qldn
+        )
 
         # 7. Thu nhập khác (711)
         thu_nhap_khac = self._tinh_phat_sinh("711", "CO", start, end)
@@ -58,7 +63,9 @@ class PerformanceService:
         # 9. Thuế TNDN (821)
         thue_hien_hanh = self._tinh_phat_sinh("821", "NO", start, end)
         thue_hoan_lai = Decimal(0)  # temporarily
-        loi_nhuan_sau_thue = tong_loi_nhuan_truoc_thue - thue_hien_hanh - thue_hoan_lai
+        loi_nhuan_sau_thue = (
+            tong_loi_nhuan_truoc_thue - thue_hien_hanh - thue_hoan_lai
+        )
 
         return BaoCaoKetQuaHDKD(
             ngay_lap=ngay_lap,

@@ -229,44 +229,31 @@ class ChiTietTaiKhoan(BaseModel):
 
 
 class ThuyetMinhTaiSan(BaseModel):
-    """Chi tiết thuyết minh về nhóm Tài sản (ví dụ: Hàng tồn kho, TSCĐ)"""
-
-    tong_cong_thuyet_minh: Decimal = Decimal(0)  # Tổng giá trị
-    chi_tiet_tai_khoan: List[ChiTietTaiKhoan]
-    ghi_chu_quan_trong: str = "Tóm tắt các chính sách kế toán liên quan đến Tài sản."
+    tong_tai_san: Decimal = Decimal(0)
+    tai_san_ngan_han: Decimal = Decimal(0)
+    tai_san_dai_han: Decimal = Decimal(0)
+    chi_tiet_tai_khoan: List = []
+    ghi_chu_quan_trong: str = ""
 
 
 class ThuyetMinhNguonVon(BaseModel):
-    """Chi tiết thuyết minh về nhóm Nguồn vốn (ví dụ: Nợ phải trả, Vốn CSH)"""
-
-    tong_cong_thuyet_minh: Decimal = Decimal(0)  # Tổng giá trị
-    chi_tiet_tai_khoan: List[ChiTietTaiKhoan]
-    ghi_chu_quan_trong: str = "Tóm tắt các chính sách kế toán liên quan đến Nguồn vốn."
+    tong_nguon_von: Decimal = Decimal(0)
+    von_chu_so_huu: Decimal = Decimal(0)
+    no_phai_tra: Decimal = Decimal(0)
+    chi_tiet_tai_khoan: List = []
+    ghi_chu_quan_trong: str = ""
 
 
 class ThuyetMinhKetQua(BaseModel):
-    """Chi tiết thuyết minh về nhóm Kết quả HĐKD (ví dụ: Doanh thu, Chi phí)"""
-
     tong_doanh_thu: Decimal = Decimal(0)
     tong_chi_phi: Decimal = Decimal(0)
-    chi_tiet_tai_khoan: List[ChiTietTaiKhoan]
-    ghi_chu_quan_trong: str = "Giải thích các biến động lớn trong doanh thu và chi phí."
+    chi_tiet_tai_khoan: List = []
+    ghi_chu_quan_trong: str = ""
 
 
 class BaoCaoThuyetMinh(BaoCaoTaiChinhBase):
-    """B09-DN: Bản thuyết minh Báo cáo tài chính (Notes to Financial Statements)"""
-
-    # Các thông tin chung
-    dac_diem_hoat_dong_cua_doanh_nghiep: str
-    ky_ke_toan_va_don_vi_tien_te: str
-    chuan_muc_ke_toan_ap_dung: str = "VAS và TT99/2025/TT-BTC"
-
-    # Chi tiết thuyết minh theo các nhóm chính
     thuyet_minh_tai_san: ThuyetMinhTaiSan
     thuyet_minh_nguon_von: ThuyetMinhNguonVon
     thuyet_minh_ket_qua_hoat_dong_kinh_doanh: ThuyetMinhKetQua
-
-    # Các thuyết minh khác
-    thong_tin_giao_dich_voi_cac_ben_lien_quan: str = "Không có"
-    cac_su_kien_sau_ngay_ket_thuc_ky_ke_toan: str = "Không có"
-    # ... (các phần khác của thuyết minh)
+    thong_tin_giao_dich_voi_cac_ben_lien_quan: str
+    cac_su_kien_sau_ngay_ket_thuc_ky_ke_toan: str

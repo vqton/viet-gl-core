@@ -9,9 +9,8 @@ Create Date: 2025-11-28 13:42:43.441849
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "8e7bd485b202"
@@ -65,7 +64,9 @@ def downgrade() -> None:
             autoincrement=False,
             nullable=False,
         ),
-        sa.Column("cap_tai_khoan", sa.INTEGER(), autoincrement=False, nullable=False),
+        sa.Column(
+            "cap_tai_khoan", sa.INTEGER(), autoincrement=False, nullable=False
+        ),
         sa.Column(
             "so_tai_khoan_cha",
             sa.VARCHAR(length=20),
@@ -101,8 +102,12 @@ def downgrade() -> None:
             autoincrement=False,
             nullable=False,
         ),
-        sa.Column("ngay_bat_dau", sa.DATE(), autoincrement=False, nullable=False),
-        sa.Column("ngay_ket_thuc", sa.DATE(), autoincrement=False, nullable=False),
+        sa.Column(
+            "ngay_bat_dau", sa.DATE(), autoincrement=False, nullable=False
+        ),
+        sa.Column(
+            "ngay_ket_thuc", sa.DATE(), autoincrement=False, nullable=False
+        ),
         sa.Column(
             "trang_thai",
             sa.VARCHAR(length=20),
@@ -156,7 +161,9 @@ def downgrade() -> None:
             autoincrement=False,
             nullable=False,
         ),
-        sa.Column("mo_ta", sa.VARCHAR(length=256), autoincrement=False, nullable=True),
+        sa.Column(
+            "mo_ta", sa.VARCHAR(length=256), autoincrement=False, nullable=True
+        ),
         sa.ForeignKeyConstraint(
             ["journal_entry_id"],
             ["journal_entries.id"],
@@ -185,7 +192,9 @@ def downgrade() -> None:
             autoincrement=False,
             nullable=False,
         ),
-        sa.Column("mo_ta", sa.VARCHAR(length=512), autoincrement=False, nullable=True),
+        sa.Column(
+            "mo_ta", sa.VARCHAR(length=512), autoincrement=False, nullable=True
+        ),
         sa.Column(
             "trang_thai",
             sa.VARCHAR(length=20),
