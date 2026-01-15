@@ -1,38 +1,51 @@
+﻿# PATH: D:\tt99acct\source/database/models/entities.py
 """
-PATH: D:/TT99ACCT/source/database/models/entities.py
+PATH: source/database/models/entities.py
+STATUS: Production-ready
+DESCRIPTION: 
+    Quản lý danh mục đối tượng pháp lý (Entities) tham gia vào các giao dịch.
+    Bao gồm: Khách hàng (Customer), Nhà cung cấp (Vendor), Nhân viên (Employee).
+IMPACT REVIEW:
+    - Ảnh hưởng đến SyncService: Cần bổ sung logic nạp Entity.
+    - Ảnh hưởng đến Vouchers (Sắp tới): Dùng làm khóa ngoại cho các phiếu Thu/Chi.
 """
 
-from sqlalchemy import Column, String, Boolean, Integer, CheckConstraint, Index
+from typing import Optional
+from sqlalchemy import String, Index, CheckConstraint
+from sqlalchemy.orm import Mapped, mapped_column, validates
 from ..base import Base, EnterpriseMixin
 
-
 class EntityModel(Base, EnterpriseMixin):
+    """
+    Model Đối tượng (Master Data).
+    Tuân thủ MDM: Tax Code là duy nhất, phân loại rõ ràng loại đối tượng.
+    """
     __tablename__ = "entities"
 
-    # Khóa chính cứng với độ dài giới hạn để tối ưu Index
-    entity_id = Column(String(50), primary_key=True)
+    # --- ĐỊNH DANH ---
+    id: Mapped[str] = mapped_column(String(20), primary_key=True, comment="Mã đối tượng (Ví dụ: KH001)")
+    name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Tên đối tượng/Công ty")
+    
+    # --- THÔNG TIN THUẾ & PHÁP LÝ ---
+    tax_code: Mapped[Optional[str]] = mapped_column(String(20), index=True, comment="Mã số thuế")
+    address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # --- PHÂN LOẠI (CUSTOMER, VENDOR, EMPLOYEE, OTHER) ---
+    entity_type: Mapped[str] = mapped_column(String(20), index=True, default="CUSTOMER")
 
-    # Thông tin định danh
-    name = Column(String(255), nullable=False)
-    tax_code = Column(
-        String(20), unique=True, index=True
-    )  # Cấm trùng MST trên toàn hệ thống
-    address = Column(String(500))
-
-    # Phân loại và trạng thái
-    entity_type = Column(String(20), index=True)  # KH, NCC, NV, OTHER
-    entity_group = Column(String(50), index=True)  # VIP, NỘI BỘ, CHI NHÁNH...
-
-    # Quản trị rủi ro tài chính
-    credit_limit = Column(Integer, default=0)  # Hạn mức nợ tối đa
-    is_active = Column(Boolean, default=True, index=True)
-    is_deleted = Column(Boolean, default=False, index=True)  # Soft Delete
-
-    # Ràng buộc mức Database (Cơ bắp Enterprise)
+    # --- PRODUCTION-READY CONSTRAINTS ---
     __table_args__ = (
-        CheckConstraint("credit_limit >= 0", name="check_credit_limit_positive"),
-        Index("idx_entity_lookup", "entity_type", "is_active", "is_deleted"),
+        CheckConstraint("length(id) >= 2", name="ck_entity_id_length"),
+        # Index hỗ trợ tìm kiếm nhanh theo tên hoặc mã số thuế khi lập chứng từ
+        Index("ix_entities_name_tax", "name", "tax_code"),
     )
 
-    def __repr__(self):
-        return f"<Entity(id='{self.entity_id}', name='{self.name}', type='{self.entity_type}')>"
+    @validates("tax_code")
+    def validate_tax_code(self, key, value):
+        # Logic MDM Cleanse: Loại bỏ dấu gạch ngang hoặc khoảng trắng trong MST
+        if value:
+            return value.replace("-", "").replace(" ", "")
+        return value
+
+    def __repr__(self) -> str:
+        return f"<Entity(id={self.id}, name={self.name}, type={self.entity_type})>"

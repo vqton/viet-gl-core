@@ -1,0 +1,1024 @@
+[
+    {
+        "id": "111",
+        "name": "Tiền mặt",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1111",
+        "name": "Tiền Việt Nam",
+        "parent_id": "111",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1112",
+        "name": "Ngoại tệ",
+        "parent_id": "111",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1113",
+        "name": "Vàng tiền tệ",
+        "parent_id": "111",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "112",
+        "name": "Tiền gửi Ngân hàng",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1121",
+        "name": "Tiền Việt Nam",
+        "parent_id": "112",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1122",
+        "name": "Ngoại tệ",
+        "parent_id": "112",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1123",
+        "name": "Vàng tiền tệ",
+        "parent_id": "112",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "113",
+        "name": "Tiền đang chuyển",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1131",
+        "name": "Tiền Việt Nam",
+        "parent_id": "113",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1132",
+        "name": "Ngoại tệ",
+        "parent_id": "113",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "121",
+        "name": "Chứng khoán kinh doanh",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1211",
+        "name": "Cổ phiếu",
+        "parent_id": "121",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1212",
+        "name": "Trái phiếu",
+        "parent_id": "121",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1218",
+        "name": "Chứng khoán và công cụ tài chính khác",
+        "parent_id": "121",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "128",
+        "name": "Đầu tư nắm giữ đến ngày đáo hạn",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1281",
+        "name": "Tiền gửi có kỳ hạn",
+        "parent_id": "128",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1282",
+        "name": "Cho vay",
+        "parent_id": "128",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1288",
+        "name": "Các khoản đầu tư khác nắm giữ đến ngày đáo hạn",
+        "parent_id": "128",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "131",
+        "name": "Phải thu của khách hàng",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "BOTH"
+    },
+    {
+        "id": "133",
+        "name": "Thuế GTGT được khấu trừ",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1331",
+        "name": "Thuế GTGT được khấu trừ của hàng hóa, dịch vụ",
+        "parent_id": "133",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1332",
+        "name": "Thuế GTGT được khấu trừ của tài sản cố định",
+        "parent_id": "133",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "136",
+        "name": "Phải thu nội bộ",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "BOTH"
+    },
+    {
+        "id": "1361",
+        "name": "Vốn kinh doanh ở các đơn vị trực thuộc",
+        "parent_id": "136",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1368",
+        "name": "Phải thu nội bộ khác",
+        "parent_id": "136",
+        "acc_type": "ASSET",
+        "nature": "BOTH"
+    },
+    {
+        "id": "138",
+        "name": "Phải thu khác",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "BOTH"
+    },
+    {
+        "id": "1381",
+        "name": "Tài sản thiếu chờ xử lý",
+        "parent_id": "138",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1385",
+        "name": "Phải thu về cổ phần hóa",
+        "parent_id": "138",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1388",
+        "name": "Phải thu khác",
+        "parent_id": "138",
+        "acc_type": "ASSET",
+        "nature": "BOTH"
+    },
+    {
+        "id": "141",
+        "name": "Tạm ứng",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "151",
+        "name": "Hàng mua đang đi đường",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "152",
+        "name": "Nguyên liệu, vật liệu",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "153",
+        "name": "Công cụ, dụng cụ",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "154",
+        "name": "Chi phí sản xuất, kinh doanh dở dang",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "155",
+        "name": "Thành phẩm",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "156",
+        "name": "Hàng hóa",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1561",
+        "name": "Giá mua hàng hóa",
+        "parent_id": "156",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1562",
+        "name": "Chi phí thu mua hàng hóa",
+        "parent_id": "156",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "1567",
+        "name": "Hàng hóa bất động sản",
+        "parent_id": "156",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "157",
+        "name": "Hàng gửi đi bán",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "158",
+        "name": "Hàng hóa kho bảo thuế",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "161",
+        "name": "Chi sự nghiệp",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "171",
+        "name": "Giao dịch mua bán lại trái phiếu Chính phủ",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "211",
+        "name": "Tài sản cố định hữu hình",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2111",
+        "name": "Nhà cửa, vật kiến trúc",
+        "parent_id": "211",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2112",
+        "name": "Máy móc, thiết bị",
+        "parent_id": "211",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2113",
+        "name": "Phương tiện vận tải, truyền dẫn",
+        "parent_id": "211",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2114",
+        "name": "Thiết bị, dụng cụ quản lý",
+        "parent_id": "211",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2115",
+        "name": "Cây lâu năm, súc vật làm việc và cho sản phẩm",
+        "parent_id": "211",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2118",
+        "name": "Tài sản cố định hữu hình khác",
+        "parent_id": "211",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "212",
+        "name": "Tài sản cố định thuê tài chính",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "213",
+        "name": "Tài sản cố định vô hình",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "214",
+        "name": "Hao mòn tài sản cố định",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "2141",
+        "name": "Hao mòn TSCĐ hữu hình",
+        "parent_id": "214",
+        "acc_type": "ASSET",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "2142",
+        "name": "Hao mòn TSCĐ thuê tài chính",
+        "parent_id": "214",
+        "acc_type": "ASSET",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "2143",
+        "name": "Hao mòn TSCĐ vô hình",
+        "parent_id": "214",
+        "acc_type": "ASSET",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "2147",
+        "name": "Hao mòn bất động sản đầu tư",
+        "parent_id": "214",
+        "acc_type": "ASSET",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "217",
+        "name": "Bất động sản đầu tư",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "221",
+        "name": "Đầu tư vào công ty con",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "222",
+        "name": "Đầu tư vào công ty liên doanh, liên kết",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "228",
+        "name": "Đầu tư khác",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "229",
+        "name": "Dự phòng tổn thất tài sản",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "241",
+        "name": "Xây dựng cơ bản dở dang",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2411",
+        "name": "Mua sắm tài sản cố định",
+        "parent_id": "241",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2412",
+        "name": "Xây dựng cơ bản",
+        "parent_id": "241",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "2413",
+        "name": "Sửa chữa lớn tài sản cố định",
+        "parent_id": "241",
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "242",
+        "name": "Chi phí trả trước",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "243",
+        "name": "Tài sản thuế thu nhập hoãn lại",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "244",
+        "name": "Cầm cố, ký quỹ, ký cược",
+        "parent_id": null,
+        "acc_type": "ASSET",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "331",
+        "name": "Phải trả cho người bán",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "333",
+        "name": "Thuế và các khoản phải nộp Nhà nước",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3331",
+        "name": "Thuế giá trị gia tăng phải nộp",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "33311",
+        "name": "Thuế giá trị gia tăng đầu ra",
+        "parent_id": "3331",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "33312",
+        "name": "Thuế GTGT hàng nhập khẩu",
+        "parent_id": "3331",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3332",
+        "name": "Thuế tiêu thụ đặc biệt",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3333",
+        "name": "Thuế xuất, nhập khẩu",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3334",
+        "name": "Thuế thu nhập doanh nghiệp",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3335",
+        "name": "Thuế thu nhập cá nhân",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3336",
+        "name": "Thuế tài nguyên",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3337",
+        "name": "Thuế nhà đất, tiền thuê đất",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3338",
+        "name": "Thuế bảo vệ môi trường và các loại thuế khác",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3339",
+        "name": "Phí, lệ phí và các khoản phải nộp khác",
+        "parent_id": "333",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "334",
+        "name": "Phải trả người lao động",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3341",
+        "name": "Phải trả công nhân viên",
+        "parent_id": "334",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3348",
+        "name": "Phải trả người lao động khác",
+        "parent_id": "334",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "335",
+        "name": "Chi phí phải trả",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "336",
+        "name": "Phải trả nội bộ",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "337",
+        "name": "Thanh toán theo tiến độ kế hoạch hợp đồng xây dựng",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "338",
+        "name": "Phải trả, phải nộp khác",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "3381",
+        "name": "Tài sản thừa chờ giải quyết",
+        "parent_id": "338",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3382",
+        "name": "Kinh phí công đoàn",
+        "parent_id": "338",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3383",
+        "name": "Bảo hiểm xã hội",
+        "parent_id": "338",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3384",
+        "name": "Bảo hiểm y tế",
+        "parent_id": "338",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "3386",
+        "name": "Bảo hiểm thất nghiệp",
+        "parent_id": "338",
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "341",
+        "name": "Vay và nợ thuê tài chính",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "343",
+        "name": "Trái phiếu phát hành",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "347",
+        "name": "Thuế thu nhập hoãn lại phải trả",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "352",
+        "name": "Dự phòng phải trả",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "353",
+        "name": "Quỹ khen thưởng, phúc lợi",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "356",
+        "name": "Quỹ phát triển khoa học và công nghệ",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "357",
+        "name": "Quỹ bình ổn giá",
+        "parent_id": null,
+        "acc_type": "LIABILITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "411",
+        "name": "Vốn góp của chủ sở hữu",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "4111",
+        "name": "Vốn góp của chủ sở hữu",
+        "parent_id": "411",
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "4112",
+        "name": "Thặng dư vốn cổ phần",
+        "parent_id": "411",
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "4118",
+        "name": "Vốn khác",
+        "parent_id": "411",
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "412",
+        "name": "Chênh lệch đánh giá lại tài sản",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "413",
+        "name": "Chênh lệch tỷ giá hối đoái",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "414",
+        "name": "Quỹ đầu tư phát triển",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "418",
+        "name": "Các quỹ khác thuộc vốn chủ sở hữu",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "419",
+        "name": "Cổ phiếu quỹ",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "421",
+        "name": "Lợi nhuận sau thuế chưa phân phối",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "4211",
+        "name": "Lợi nhuận sau thuế chưa phân phối năm trước",
+        "parent_id": "421",
+        "acc_type": "EQUITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "4212",
+        "name": "Lợi nhuận sau thuế chưa phân phối năm nay",
+        "parent_id": "421",
+        "acc_type": "EQUITY",
+        "nature": "BOTH"
+    },
+    {
+        "id": "441",
+        "name": "Nguồn vốn đầu tư XDCB",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "461",
+        "name": "Nguồn kinh phí sự nghiệp",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "466",
+        "name": "Nguồn kinh phí đã hình thành TSCĐ",
+        "parent_id": null,
+        "acc_type": "EQUITY",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "511",
+        "name": "Doanh thu bán hàng và cung cấp dịch vụ",
+        "parent_id": null,
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "5111",
+        "name": "Doanh thu bán hàng hóa",
+        "parent_id": "511",
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "5112",
+        "name": "Doanh thu bán các thành phẩm",
+        "parent_id": "511",
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "5113",
+        "name": "Doanh thu cung cấp dịch vụ",
+        "parent_id": "511",
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "5115",
+        "name": "Doanh thu bán hàng hóa bất động sản",
+        "parent_id": "511",
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "5118",
+        "name": "Doanh thu khác",
+        "parent_id": "511",
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "515",
+        "name": "Doanh thu tài chính",
+        "parent_id": null,
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "521",
+        "name": "Các khoản giảm trừ doanh thu",
+        "parent_id": null,
+        "acc_type": "REVENUE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "611",
+        "name": "Mua hàng",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "621",
+        "name": "Chi phí nguyên liệu, vật liệu trực tiếp",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "622",
+        "name": "Chi phí nhân công trực tiếp",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "623",
+        "name": "Chi phí sử dụng máy thi công",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "627",
+        "name": "Chi phí sản xuất chung",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "631",
+        "name": "Giá thành sản xuất",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "632",
+        "name": "Giá vốn hàng bán",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "635",
+        "name": "Chi phí tài chính",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "641",
+        "name": "Chi phí bán hàng",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "642",
+        "name": "Chi phí quản lý doanh nghiệp",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "711",
+        "name": "Thu nhập khác",
+        "parent_id": null,
+        "acc_type": "REVENUE",
+        "nature": "CREDIT"
+    },
+    {
+        "id": "811",
+        "name": "Chi phí khác",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "821",
+        "name": "Chi phí thuế thu nhập doanh nghiệp",
+        "parent_id": null,
+        "acc_type": "EXPENSE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "911",
+        "name": "Xác định kết quả kinh doanh",
+        "parent_id": null,
+        "acc_type": "OTHER",
+        "nature": "BOTH"
+    },
+    {
+        "id": "001",
+        "name": "Tài sản thuê ngoài",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "002",
+        "name": "Vật tư, hàng hóa giữ hộ, gia công",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "003",
+        "name": "Hàng hóa nhận bán hộ, nhận ký gửi, ký cược",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "004",
+        "name": "Ngoại tệ các loại",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "007",
+        "name": "Nợ khó đòi đã xử lý",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "DEBIT"
+    },
+    {
+        "id": "008",
+        "name": "Dự toán chi sự nghiệp, chương trình",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "BOTH"
+    },
+    {
+        "id": "009",
+        "name": "Nguồn vốn khấu hao TSCĐ",
+        "parent_id": null,
+        "acc_type": "OFF_BALANCE",
+        "nature": "CREDIT"
+    }
+]
