@@ -11,6 +11,57 @@ from source.database.models.accounting import JournalEntryModel, VoucherHeaderMo
 from ..database.storage import DB_STORAGE
 
 
+import json
+
+
+class AccountingEngine:
+    def __init__(self, coa_path):
+        with open(coa_path, "r", encoding="utf-8") as f:
+            self.accounts = json.load(f)
+        self.leaf_accounts = self._identify_leaf_accounts()
+
+    def _identify_leaf_accounts(self):
+        """Tự động xác định tài khoản nào là 'Lá' dựa trên ID"""
+        ids = sorted([a["id"] for a in self.accounts])
+        leaves = []
+        for i, current_id in enumerate(ids):
+            # Nếu ID tiếp theo không bắt đầu bằng ID hiện tại -> ID hiện tại là Lá
+            if i + 1 < len(ids) and ids[i + 1].startswith(current_id):
+                continue
+            leaves.append(current_id)
+        return leaves
+
+    def validate_transaction(self, voucher):
+        """
+        Quy tắc kiểm soát:
+        1. Tài khoản phải tồn tại.
+        2. Phải là tài khoản Lá (Leaf).
+        3. Tổng Nợ phải bằng Tổng Có.
+        """
+        total_debit = 0
+        total_credit = 0
+
+        for entry in voucher["entries"]:
+            acc_id = entry["account_id"]
+
+            # Kiểm tra tài khoản Lá
+            if acc_id not in self.leaf_accounts:
+                raise ValueError(
+                    f"LỖI NGHIỆP VỤ: Tài khoản {acc_id} là tài khoản tổng hợp. Vui lòng chọn tài khoản chi tiết hơn!"
+                )
+
+            total_debit += entry.get("debit", 0)
+            total_credit += entry.get("credit", 0)
+
+        # Kiểm tra tính cân bằng kế toán
+        if total_debit != total_credit:
+            raise ValueError(
+                f"LỖI CÂN BẰNG: Tổng Nợ ({total_debit}) khác Tổng Có ({total_credit})!"
+            )
+
+        return True
+
+
 class AccountingService:
     def __init__(self):
         self.master_path = "data/master_data/accounts.json"
