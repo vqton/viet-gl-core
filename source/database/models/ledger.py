@@ -1,62 +1,43 @@
 # Path: source/database/models/ledger.py
 """
-MODULE: ledger.py
-PURPOSE: Định nghĩa bảng Sổ cái (General Ledger) - "Xương sống" của dữ liệu kế toán.
-Lưu trữ toàn bộ các phát sinh kinh tế (bút toán) và liên kết các đối tác liên quan.
+General Ledger Model Module.
+
+Lưu trữ nhật ký chung và các bút toán chi tiết (Sổ cái). Đây là bảng dữ liệu
+quan trọng nhất, là cơ sở để kết xuất tất cả các báo cáo tài chính.
 """
 
-from sqlalchemy import Column, String, Float, ForeignKey, Date, Integer, JSON
-from sqlalchemy.orm import relationship
-from source.database.foundation import BaseSchema
+from datetime import datetime
+from typing import Optional
+from sqlalchemy import String, Float, ForeignKey, DateTime
+from sqlalchemy.orm import Mapped, mapped_column
+from source.database.foundation import Base, EnterpriseMixin
 
-class GeneralLedger(BaseSchema):
+class GeneralLedger(Base, EnterpriseMixin):
     """
-    Model đại diện cho Sổ cái kế toán (General Ledger).
-
-    Mỗi bản ghi trong bảng này tương ứng với một dòng định khoản (Nợ hoặc Có).
-    Sử dụng kỹ thuật Polymorphic Mapping đơn giản để liên kết linh hoạt với 
-    Khách hàng (Customer), Nhà cung cấp (Vendor) hoặc Nhân viên (Employee).
-
+    Model lưu trữ chi tiết từng dòng bút toán (Entry).
+    
     Attributes:
-        id (int): Khóa chính tự tăng.
-        transaction_date (Date): Ngày hạch toán (Ngày ghi sổ).
-        voucher_no (str): Số chứng từ gốc (Số phiếu thu, phiếu chi, hóa đơn).
-        description (str): Diễn giải nội dung nghiệp vụ.
-        account_id (str): Khóa ngoại liên kết tới Hệ thống tài khoản (accounts).
-        partner_id (str): Mã định danh của đối tượng liên quan (Không dùng FK cứng).
-        partner_type (str): Phân loại đối tượng (CUSTOMER, VENDOR, EMPLOYEE).
+        id (int): Định danh duy nhất cho mỗi dòng nghiệp vụ.
+        transaction_date (datetime): Ngày hạch toán thực tế.
+        voucher_no (str): Số chứng từ gốc (Số phiếu thu, phiếu chi, hóa đơn...).
+        description (str): Diễn giải nội dung kinh tế của nghiệp vụ.
+        account_id (str): Tài khoản đối ứng (Liên kết đến bảng accounts).
         debit (float): Số tiền phát sinh bên Nợ.
         credit (float): Số tiền phát sinh bên Có.
-        currency (str): Loại tiền tệ (Mặc định: VND).
-        tags (JSON): Lưu trữ các thẻ phân loại bổ sung (vùng miền, dự án, v.v.).
+        partner_id (str): Đối tượng chi tiết (Liên kết đến bảng entities) dùng cho quản lý công nợ.
     """
     __tablename__ = "general_ledger"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    transaction_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    voucher_no: Mapped[str] = mapped_column(String(50), index=True)
+    description: Mapped[str] = mapped_column(String(500))
     
-    # Thông tin chứng từ
-    transaction_date = Column(Date, nullable=False, index=True)
-    voucher_no = Column(String, index=True)  # Số hiệu chứng từ gốc
-    description = Column(String)             # Diễn giải chi tiết nghiệp vụ
-
-    # Định khoản Nợ/Có
-    account_id = Column(String, ForeignKey("accounts.id"), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(String(20), ForeignKey("accounts.id"))
+    debit: Mapped[float] = mapped_column(Float, default=0.0)
+    credit: Mapped[float] = mapped_column(Float, default=0.0)
     
-    # Quản lý đối tượng công nợ linh hoạt
-    partner_id = Column(String, index=True, nullable=True) 
-    partner_type = Column(String, index=True, nullable=True) # VD: 'CUSTOMER', 'VENDOR', 'EMPLOYEE'
-
-    # Giá trị giao dịch
-    debit = Column(Float, default=0.0)
-    credit = Column(Float, default=0.0)
-    currency = Column(String, default="VND")
-
-    # Thông tin mở rộng cho báo cáo quản trị
-    tags = Column(JSON) 
-
-    # Thiết lập mối quan hệ với bảng Tài khoản
-    account = relationship("Account")
+    partner_id: Mapped[Optional[str]] = mapped_column(String(50), ForeignKey("entities.id"), nullable=True)
 
     def __repr__(self):
-        """Trả về đại diện chuỗi của bút toán để phục vụ logging/debugging."""
-        return f"<Ledger(Date={self.transaction_date}, Acc={self.account_id}, Debit={self.debit}, Credit={self.credit})>"
+        return f"<Ledger {self.voucher_no}: {self.account_id} Dr:{self.debit} Cr:{self.credit}>"

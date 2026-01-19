@@ -1,20 +1,45 @@
-from sqlalchemy import Column, DateTime, String, Integer, create_all
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.sql import func
+# Path: source/database/foundation.py
+"""
+Foundation Module.
 
-Base = declarative_base()
+Thiết lập nền tảng ORM, cấu hình kết nối Database và các Mixins dùng chung
+để đảm bảo tính nhất quán về Audit Trail (Vết kiểm toán) và Concurrency Control.
+"""
 
-class AuditMixin:
-    """Tự động hóa hoàn toàn việc truy vết dữ liệu"""
-    created_at = Column(DateTime, server_default=func.now(), index=True)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    created_by = Column(String, default="SYSTEM")
-    updated_by = Column(String, default="SYSTEM")
-    version_id = Column(Integer, default=1, nullable=False)
+from datetime import datetime
+from sqlalchemy import create_engine, String, DateTime, Integer
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
-    @declared_attr
-    def __mapper_args__(cls):
-        return {"version_id_col": cls.version_id}
+# URL kết nối duy nhất: Tập trung dữ liệu về một file duy nhất
+DB_URL = "sqlite:///D:/TT99ACCT/data/finance.db"
+engine = create_engine(DB_URL, echo=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-class BaseSchema(Base, AuditMixin):
-    __abstract__ = True
+class Base(DeclarativeBase):
+    """Lớp cơ sở (Base) cho tất cả các Model trong hệ thống."""
+    pass
+
+class EnterpriseMixin:
+    """
+    Mixin cung cấp các trường chuẩn doanh nghiệp cho mục đích kiểm soát và bảo mật.
+    
+    Attributes:
+        version_id (int): Triển khai Optimistic Locking. Mỗi lần UPDATE, số version sẽ tự tăng. 
+                         Nếu hai người cùng sửa một lúc, người lưu sau sẽ thất bại nếu version đã thay đổi.
+        created_at (datetime): Thời điểm khởi tạo bản ghi lần đầu.
+        updated_at (datetime): Thời điểm bản ghi được cập nhật lần cuối cùng.
+        created_by (str): Định danh người dùng thực hiện tạo bản ghi (User ID).
+        updated_by (str): Định danh người dùng thực hiện chỉnh sửa bản ghi cuối cùng.
+    """
+    # Concurrency Control
+    version_id: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    
+    # Audit Trail (Vết kiểm toán)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_by: Mapped[str] = mapped_column(String(50), nullable=True)
+    updated_by: Mapped[str] = mapped_column(String(50), nullable=True)
+
+    __mapper_args__ = {
+        "version_id_col": version_id 
+    }

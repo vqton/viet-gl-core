@@ -1,0 +1,1196 @@
+﻿==============================================================================
+FILE PATH: D:\tt99acct\bootstrap.py
+==============================================================================
+# Path: bootstrap.py
+"""
+BOOTSTRAPPER: Khá»Ÿi táº¡o vÃ  Ä‘á»“ng bá»™ hÃ³a toÃ n bá»™ dá»± Ã¡n.
+Quy trÃ¬nh: LÃ m sáº¡ch DB -> Táº¡o báº£ng -> Náº¡p dá»¯ liá»‡u Master Data tá»« JSON.
+"""
+
+import os
+from sqlalchemy.orm import Session
+from source.database.foundation import engine, Base
+from source.services.data_ingestion import ingestion_service
+
+def reset_database():
+    """XÃ³a bá» vÃ  khá»Ÿi táº¡o láº¡i Schema Database."""
+    print("--- ðŸ› ï¸  INITIALIZING SYSTEM ---")
+    if not os.path.exists('data'):
+        os.makedirs('data')
+    
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    print("âœ… Schema created successfully.")
+
+def run_ingestion():
+    """Náº¡p dá»¯ liá»‡u theo thá»© tá»± Æ°u tiÃªn."""
+    with Session(engine) as session:
+        # 1. Accounts pháº£i náº¡p trÆ°á»›c
+        ingestion_service.ingest_json(session, "accounts", "source/master/data/chart_of_accounts/accounts_tt99.json")
+        # 2. Partners náº¡p sau
+        ingestion_service.ingest_json(session, "customers", "source/master/data/partners/customers.json")
+        ingestion_service.ingest_json(session, "vendors", "source/master/data/partners/vendors.json")
+        ingestion_service.ingest_json(session, "employees", "source/master/data/partners/employees.json")
+
+if __name__ == "__main__":
+    reset_database()
+    run_ingestion()
+    print("\n--- ðŸš€ SYSTEM READY ---")
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\main.py
+==============================================================================
+# PATH: D:\tt99acct/main.py
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\main_sync.py
+==============================================================================
+"""
+PATH: main_sync.py
+STATUS: Latest Production Version
+REVISION: 
+    - Má»Ÿ rá»™ng master_data_map Ä‘á»ƒ náº¡p tÃ i khoáº£n Super Full.
+    - Chia nhá» Entities thÃ nh Customers, Vendors, Employees Ä‘á»ƒ quáº£n trá»‹ MDM.
+"""
+
+import sys
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# Äáº£m báº£o há»‡ thá»‘ng nháº­n diá»‡n Ä‘Æ°á»£c folder source
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from source.database.base import Base
+from source.services.sync_service import SyncService
+
+# Cáº¥u hÃ¬nh Ä‘Æ°á»ng dáº«n DB
+DB_URL = "sqlite:///data/finance.db"
+
+def run_latest_sync():
+    # 1. Khá»Ÿi táº¡o mÃ´i trÆ°á»ng
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    
+    engine = create_engine(DB_URL)
+    SessionLocal = sessionmaker(bind=engine)
+    
+    print("[SYSTEM] --- KHá»žI CHáº Y Äá»’NG Bá»˜ DANH Má»¤C THÃ”NG TÆ¯ 99/2025 ---")
+    Base.metadata.create_all(bind=engine)
+    
+    db = SessionLocal()
+    sync_tool = SyncService(db)
+
+    # 2. Cáº­p nháº­t Latest Master Data Map
+    # Chia nhá» Ä‘á»ƒ dá»… dÃ ng quáº£n lÃ½ theo phÃ²ng ban (Káº¿ toÃ¡n bÃ¡n hÃ ng/mua hÃ ng/nhÃ¢n sá»±)
+    master_data_map = {
+        "accounts": "source/master/data/accounts_tt99.json",  # Báº£n Super Full >100 rows
+        "customers": "source/master/data/customers.json",    # File chuyÃªn biá»‡t KhÃ¡ch hÃ ng
+        "vendors": "source/master/data/vendors.json",        # File chuyÃªn biá»‡t NhÃ  cung cáº¥p
+        "employees": "source/master/data/employees.json"      # File chuyÃªn biá»‡t NhÃ¢n viÃªn
+    }
+
+    try:
+        # Náº¡p theo thá»© tá»± Æ°u tiÃªn (Accounts luÃ´n náº¡p trÆ°á»›c Ä‘á»ƒ lÃ m gá»‘c cho háº¡ch toÃ¡n)
+        sync_tool.sync_all_master_data(master_data_map)
+        print("[SUCCESS] --- Há»† THá»NG ÄÃƒ Sáº´N SÃ€NG Vá»šI Dá»® LIá»†U Má»šI NHáº¤T ---")
+    except Exception as e:
+        print(f"[CRITICAL ERROR] QuÃ¡ trÃ¬nh Ä‘á»“ng bá»™ tháº¥t báº¡i: {str(e)}")
+    finally:
+        db.close()
+
+if __name__ == "__main__":
+    run_latest_sync()
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\config\mapping_bctc.py
+==============================================================================
+# Cau hinh Mapping so du tai khoan vao chi tieu BCTC (Phu luc IV)
+MAPPING_B01_DN = {
+    "110": ["111", "112"],  # Tien va cac khoan tuong duong tien
+    "150": ["152", "156"],  # Hang ton kho
+    "411": ["411"],  # Von chu so huu
+}
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\main.py
+==============================================================================
+# Path: source/main.py
+"""
+MODULE: main.py
+ROLE: Äiá»ƒm khá»Ÿi cháº¡y á»©ng dá»¥ng chÃ­nh (Production Entry Point).
+PURPOSE: 
+    1. Thá»±c hiá»‡n cÃ¡c giao dá»‹ch nghiá»‡p vá»¥ thá»±c táº¿ (Háº¡ch toÃ¡n chá»©ng tá»«).
+    2. Xuáº¥t bÃ¡o cÃ¡o quáº£n trá»‹ nhanh (Báº£ng cÃ¢n Ä‘á»‘i phÃ¡t sinh).
+    3. Äáº£m báº£o luá»“ng váº­n hÃ nh khÃ´ng bá»‹ giÃ¡n Ä‘oáº¡n bá»Ÿi lá»—i dá»¯ liá»‡u.
+"""
+
+import time
+from datetime import datetime
+from sqlalchemy.orm import Session
+from source.database.foundation import engine
+from source.services.accounting import ACC_SERVICE
+
+def main():
+    """
+    HÃ m váº­n hÃ nh chÃ­nh cá»§a há»‡ thá»‘ng káº¿ toÃ¡n TT99.
+    Thá»±c hiá»‡n luá»“ng: Ghi sá»• -> Truy váº¥n bÃ¡o cÃ¡o -> Hiá»ƒn thá»‹ káº¿t quáº£.
+    """
+    print("\n" + "="*20 + " TT99 ACCT: Há»† THá»NG Váº¬N HÃ€NH CHÃNH THá»¨C " + "="*20)
+
+    # Sá»­ dá»¥ng context manager Ä‘á»ƒ quáº£n lÃ½ session an toÃ n
+    with Session(engine) as db:
+        # 1. Chuáº©n bá»‹ dá»¯ liá»‡u demo (LuÃ´n sinh mÃ£ má»›i dá»±a trÃªn timestamp Ä‘á»ƒ trÃ¡nh UNIQUE error)
+        v_no_demo = f"HD_{int(time.time())}"
+
+        # Cáº¥u trÃºc entries khá»›p vá»›i tham sá»‘ cá»§a AccountingService.post_voucher
+        entries = [
+            {
+                "account_id": "131",
+                "debit": 1000,
+                "credit": 0,
+                "partner_id": "KH_001",
+                "partner_type": "CUSTOMER",
+                "description": "BÃ¡n hÃ ng cho khÃ¡ch KH_001",
+            },
+            {
+                "account_id": "511", 
+                "debit": 0, 
+                "credit": 1000, 
+                "description": "Ghi nháº­n doanh thu bÃ¡n hÃ ng"
+            },
+        ]
+
+        # 2. Ghi sá»• (Posting)
+        print(f"[*] Äang thá»±c hiá»‡n ghi sá»• chá»©ng tá»«: {v_no_demo}...")
+        try:
+            status, msg = ACC_SERVICE.post_voucher(
+                db, "HÄ", v_no_demo, datetime.now(), "Nghiá»‡p vá»¥ bÃ¡n hÃ ng tá»± Ä‘á»™ng", entries
+            )
+            print(f"    ðŸ‘‰ Tráº¡ng thÃ¡i váº­n hÃ nh: {msg}")
+        except Exception as e:
+            print(f"    âŒ Lá»—i thá»±c thi ghi sá»•: {e}")
+
+        # 3. Truy xuáº¥t bÃ¡o cÃ¡o Báº£ng cÃ¢n Ä‘á»‘i phÃ¡t sinh (Trial Balance)
+        print("\n" + "=" * 25 + " Báº¢NG CÃ‚N Äá»I PHÃT SINH " + "=" * 25)
+        try:
+            # Gá»i hÃ m get_trial_balance Ä‘Ã£ Ä‘Æ°á»£c chuáº©n hÃ³a trong accounting.py
+            tb = ACC_SERVICE.get_trial_balance(db)
+
+            # Header bÃ¡o cÃ¡o
+            print(f"{'MÃ£ TK':<10} | {'PhÃ¡t sinh Ná»£':>15} | {'PhÃ¡t sinh CÃ³':>15}")
+            print("-" * 46)
+
+            # Duyá»‡t dá»¯ liá»‡u tá»« key 'details' (theo Ä‘Ãºng cáº¥u trÃºc dict trong accounting.py)
+            for row in tb.get("details", []):
+                print(
+                    f"{row['account_id']:<10} | {row['debit']:>15,.0f} | {row['credit']:>15,.0f}"
+                )
+
+            print("-" * 46)
+            
+            # Kiá»ƒm tra tÃ­nh cÃ¢n Ä‘á»‘i tá»•ng thá»ƒ
+            balance_status = "CÃ‚N Äá»I" if tb.get("is_balanced") else "KHÃ”NG CÃ‚N"
+            print(f"TÃŒNH TRáº NG: {balance_status}")
+            print(f"{'Tá»”NG Cá»˜NG:':<10} | {tb.get('grand_total_debit', 0):>15,.0f} | {tb.get('grand_total_credit', 0):>15,.0f}")
+            print("=" * 74)
+            
+        except Exception as e:
+            print(f"âŒ KhÃ´ng thá»ƒ truy xuáº¥t bÃ¡o cÃ¡o: {e}")
+
+if __name__ == "__main__":
+    main()
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\__init__.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\core\db_config.py
+==============================================================================
+# PATH: D:/tt99acct/source/core/db_config.py
+
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from typing import Generator
+
+# Cáº¥u hÃ¬nh Ä‘Æ°á»ng dáº«n Database (Máº·c Ä‘á»‹nh dÃ¹ng SQLite táº¡i thÆ° má»¥c gá»‘c dá»± Ã¡n)
+# Trong tÆ°Æ¡ng lai cÃ³ thá»ƒ thay báº±ng: "postgresql://user:password@localhost/dbname"
+DATABASE_URL = "sqlite:///D:/tt99acct/tt99_core.db"
+
+# Khá»Ÿi táº¡o Engine vá»›i cáº¥u hÃ¬nh tá»‘i Æ°u
+# check_same_thread=False chá»‰ dÃ nh cho SQLite Ä‘á»ƒ há»— trá»£ Ä‘a luá»“ng
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    echo=False  # Chuyá»ƒn thÃ nh True náº¿u muá»‘n log toÃ n bá»™ cÃ¢u lá»‡nh SQL ra console
+)
+
+# Táº¡o Session factory Ä‘á»ƒ quáº£n lÃ½ cÃ¡c phiÃªn lÃ m viá»‡c vá»›i DB
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db() -> Generator[Session, None, None]:
+    """
+    Dependency function Ä‘á»ƒ quáº£n lÃ½ vÃ²ng Ä‘á»i cá»§a má»™t Database Session.
+    Äáº£m báº£o session luÃ´n Ä‘Æ°á»£c Ä‘Ã³ng sau khi sá»­ dá»¥ng xong.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\core\logger_config.py
+==============================================================================
+# PATH: D:\tt99acct\source/core/logger_config.py
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\core\__init__.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\base.py
+==============================================================================
+# PATH: D:\tt99acct\source/database/base.py
+"""
+PATH: source/database/base.py
+STATUS: Production-ready
+DESCRIPTION: 
+    Lớp cơ sở (Base Class) định nghĩa các tiêu chuẩn dữ liệu cho toàn hệ thống.
+    Đảm bảo tính nhất quán (Integrity), kiểm soát tranh chấp (Concurrency) 
+    và dấu vết kiểm toán (Audit Trail) theo TT99.
+"""
+
+from datetime import datetime
+from typing import Optional
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.sql import func
+from sqlalchemy import String, Boolean, Integer
+
+class Base(DeclarativeBase):
+    """Giao diện SQLAlchemy 2.0 cho mọi Model"""
+    pass
+
+class EnterpriseMixin:
+    """
+    Mixin cung cấp các tiêu chuẩn Production cho mọi bảng trong hệ thống.
+    """
+    # --- AUDIT TRAIL: Theo dõi dấu vết theo Thông tư 99 ---
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), comment="Ngày tạo")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, comment="Người tạo")
+    updated_by: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, comment="Người sửa")
+
+    # --- DATA INTEGRITY: Bảo vệ dữ liệu lịch sử ---
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, comment="Trạng thái hoạt động (Soft Delete)")
+    
+    # --- CONCURRENCY: Optimistic Locking cho môi trường Production ---
+    # Ngăn chặn ghi đè dữ liệu khi nhiều kế toán làm việc cùng lúc
+    version_id: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __mapper_args__ = {
+        "version_id_col": version_id
+    }
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\foundation.py
+==============================================================================
+from sqlalchemy import Column, DateTime, String, Integer, create_all
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.sql import func
+
+Base = declarative_base()
+
+class AuditMixin:
+    """Tá»± Ä‘á»™ng hÃ³a hoÃ n toÃ n viá»‡c truy váº¿t dá»¯ liá»‡u"""
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_by = Column(String, default="SYSTEM")
+    updated_by = Column(String, default="SYSTEM")
+    version_id = Column(Integer, default=1, nullable=False)
+
+    @declared_attr
+    def __mapper_args__(cls):
+        return {"version_id_col": cls.version_id}
+
+class BaseSchema(Base, AuditMixin):
+    __abstract__ = True
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\__init__.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\accounting.py
+==============================================================================
+# Path: source/services/accounting.py
+"""
+MODULE: accounting.py
+PURPOSE: Xử lý các nghiệp vụ kế toán cốt lõi và kiểm soát tính toàn vẹn tài chính.
+Cung cấp các công cụ để:
+    1. Ghi sổ chứng từ (Posting) với nguyên tắc bút toán kép.
+    2. Kiểm tra tính cân đối của giao dịch.
+    3. Tính toán số dư tài khoản và lập Bảng cân đối phát sinh (Trial Balance).
+"""
+
+from datetime import datetime
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from source.database.models.ledger import GeneralLedger
+from source.database.models.accounts import Account
+
+class AccountingService:
+    """
+    Dịch vụ quản lý nghiệp vụ kế toán (Accounting Engine).
+    Thực hiện các phép tính toán tài chính dựa trên dữ liệu từ Sổ cái (General Ledger).
+    """
+
+    @staticmethod
+    def post_voucher(db: Session, v_type: str, v_no: str, v_date: datetime, 
+                     description: str, entries: list) -> tuple[bool, str]:
+        """
+        Ghi một chứng từ kế toán vào Sổ cái (General Ledger).
+
+        Quy trình xử lý:
+            - Kiểm tra tổng Nợ có bằng tổng Có hay không.
+            - Kiểm tra sự tồn tại của các tài khoản hạch toán.
+            - Thực hiện ghi sổ theo cơ chế Transaction (Nếu lỗi sẽ Rollback toàn bộ).
+
+        Args:
+            db (Session): Phiên làm việc với cơ sở dữ liệu.
+            v_type (str): Loại chứng từ (VD: PT - Phiếu thu, PC - Phiếu chi).
+            v_no (str): Số hiệu chứng từ (Dùng để truy vết và kiểm tra tính cân đối).
+            v_date (datetime): Ngày ghi sổ.
+            description (str): Nội dung diễn giải tổng quát của chứng từ.
+            entries (list): Danh sách các dòng định khoản. Mỗi dòng là một dict chứa:
+                            {'account_id': str, 'debit': float, 'credit': float, 'partner_id': str}
+
+        Returns:
+            tuple[bool, str]: (Trạng thái thành công, Thông báo chi tiết lỗi nếu có).
+        """
+        # Kiểm tra tính cân đối của chứng từ (TC-01 trong bộ test)
+        total_debit = sum(item.get('debit', 0) for item in entries)
+        total_credit = sum(item.get('credit', 0) for item in entries)
+
+        if abs(total_debit - total_credit) > 1e-9:
+            return False, f"Chứng từ {v_no} không cân (Nợ: {total_debit} != Có: {total_credit})"
+
+        # Kiểm tra danh mục tài khoản (TC-02 trong bộ test)
+        valid_accounts = [acc.id for acc in db.query(Account.id).all()]
+        
+        try:
+            for entry in entries:
+                acc_id = entry.get('account_id')
+                if acc_id not in valid_accounts:
+                    return False, f"Tài khoản {acc_id} không tồn tại trong danh mục hệ thống."
+
+                # Tạo bản ghi hạch toán cho từng dòng
+                ledger_entry = GeneralLedger(
+                    transaction_date=v_date,
+                    voucher_no=v_no,
+                    description=entry.get('description', description),
+                    account_id=acc_id,
+                    partner_id=entry.get('partner_id'),
+                    partner_type=entry.get('partner_type'),
+                    debit=entry.get('debit', 0),
+                    credit=entry.get('credit', 0)
+                )
+                db.add(ledger_entry)
+
+            db.commit()
+            return True, f"Đã ghi sổ thành công chứng từ {v_no}."
+        
+        except Exception as e:
+            db.rollback()
+            return False, f"Lỗi hệ thống khi thực hiện ghi sổ: {str(e)}"
+
+    @staticmethod
+    def get_trial_balance(db: Session) -> dict:
+        """
+        Tổng hợp Bảng cân đối phát sinh (Trial Balance).
+        Đáp ứng yêu cầu kiểm tra tính cân đối toàn hệ thống (TC-A03).
+
+        Returns:
+            dict: Chứa thông tin tổng hợp bao gồm:
+                - is_balanced (bool): Trạng thái cân đối tổng thể.
+                - grand_total_debit (float): Tổng phát sinh Nợ toàn hệ thống.
+                - grand_total_credit (float): Tổng phát sinh Có toàn hệ thống.
+                - details (list): Danh sách chi tiết số dư từng tài khoản.
+        """
+        results = db.query(
+            GeneralLedger.account_id,
+            func.sum(GeneralLedger.debit).label("total_debit"),
+            func.sum(GeneralLedger.credit).label("total_credit")
+        ).group_by(GeneralLedger.account_id).all()
+
+        details = [
+            {"account_id": r.account_id, "debit": r.total_debit, "credit": r.total_credit}
+            for r in results
+        ]
+
+        grand_debit = sum(r.total_debit for r in results)
+        grand_credit = sum(r.total_credit for r in results)
+
+        return {
+            "is_balanced": abs(grand_debit - grand_credit) < 1e-9,
+            "grand_total_debit": grand_debit,
+            "grand_total_credit": grand_credit,
+            "details": details
+        }
+
+# Khởi tạo instance phục vụ cho việc Import trong Unit Tests
+ACC_SERVICE = AccountingService()
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\accounts.py
+==============================================================================
+from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy.orm import relationship
+from source.database.foundation import BaseSchema
+
+class Account(BaseSchema):
+    """Há»‡ thá»‘ng tÃ i khoáº£n káº¿ toÃ¡n chuáº©n"""
+    __tablename__ = "accounts"
+
+    id = Column(String, primary_key=True) # Sá»‘ hiá»‡u TK (e.g., '111', '112')
+    name = Column(String, nullable=False)
+    
+    # Cáº¥u trÃºc cÃ¢y
+    parent_id = Column(String, ForeignKey("accounts.id"), nullable=True)
+    
+    # TÃ­nh cháº¥t tÃ i khoáº£n
+    acc_type = Column(String) # ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+    nature = Column(String)   # DEBIT (DÆ° Ná»£), CREDIT (DÆ° CÃ³), BOTH (LÆ°á»¡ng tÃ­nh)
+
+    # Quan há»‡ cha-con ná»™i bá»™
+    children = relationship("Account", backref="parent", remote_side=[id])
+
+    def __repr__(self):
+        return f"<Account(id={self.id}, name={self.name})>"
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\customers.py
+==============================================================================
+from sqlalchemy import Column, String, Boolean, JSON, ForeignKey
+from source.database.foundation import BaseSchema
+
+class Customer(BaseSchema):
+    __tablename__ = "customers"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    tax_code = Column(String, index=True)
+    address = Column(String)
+    
+    # Äáº·c thÃ¹ CRM & Finance
+    is_active = Column(Boolean, default=True)
+    default_receivable_acc = Column(String, ForeignKey("accounts.id"))
+    
+    # Metadata: LÆ°u credit_limit, sales_pic, payment_terms...
+    crm_info = Column(JSON)
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\dimensions.py
+==============================================================================
+# PATH: D:\tt99acct\source/database/models/dimensions.py
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\employees.py
+==============================================================================
+from sqlalchemy import Column, String, Boolean, JSON, ForeignKey
+from sqlalchemy.orm import relationship
+from source.database.foundation import BaseSchema
+
+class Employee(BaseSchema):
+    """Danh má»¥c NhÃ¢n viÃªn - HR & Payroll"""
+    __tablename__ = "employees"
+
+    id = Column(String, primary_key=True) # MÃ£ nhÃ¢n viÃªn
+    name = Column(String, nullable=False)
+    email = Column(String)
+    phone = Column(String)
+    department = Column(String, index=True)
+    position = Column(String)
+
+    is_active = Column(Boolean, default=True)
+
+    # TÃ i khoáº£n táº¡m á»©ng/lÆ°Æ¡ng máº·c Ä‘á»‹nh (thÆ°á»ng lÃ  141, 334)
+    default_advance_acc_id = Column(String, ForeignKey("accounts.id"))
+    default_account = relationship("Account")
+
+    # LÆ°u id_card, dependents, salary_base, social_insurance... tá»« JSON
+    metadata_info = Column(JSON)
+
+    def __repr__(self):
+        return f"<Employee(id={self.id}, name={self.name})>"
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\entities.py
+==============================================================================
+# PATH: D:\tt99acct\source/database/models/entities.py
+"""
+PATH: source/database/models/entities.py
+STATUS: Production-ready
+DESCRIPTION: 
+    Quản lý danh mục đối tượng pháp lý (Entities) tham gia vào các giao dịch.
+    Bao gồm: Khách hàng (Customer), Nhà cung cấp (Vendor), Nhân viên (Employee).
+IMPACT REVIEW:
+    - Ảnh hưởng đến SyncService: Cần bổ sung logic nạp Entity.
+    - Ảnh hưởng đến Vouchers (Sắp tới): Dùng làm khóa ngoại cho các phiếu Thu/Chi.
+"""
+
+from typing import Optional
+from sqlalchemy import String, Index, CheckConstraint
+from sqlalchemy.orm import Mapped, mapped_column, validates
+from ..base import Base, EnterpriseMixin
+
+class EntityModel(Base, EnterpriseMixin):
+    """
+    Model Đối tượng (Master Data).
+    Tuân thủ MDM: Tax Code là duy nhất, phân loại rõ ràng loại đối tượng.
+    """
+    __tablename__ = "entities"
+
+    # --- ĐỊNH DANH ---
+    id: Mapped[str] = mapped_column(String(20), primary_key=True, comment="Mã đối tượng (Ví dụ: KH001)")
+    name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Tên đối tượng/Công ty")
+    
+    # --- THÔNG TIN THUẾ & PHÁP LÝ ---
+    tax_code: Mapped[Optional[str]] = mapped_column(String(20), index=True, comment="Mã số thuế")
+    address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # --- PHÂN LOẠI (CUSTOMER, VENDOR, EMPLOYEE, OTHER) ---
+    entity_type: Mapped[str] = mapped_column(String(20), index=True, default="CUSTOMER")
+
+    # --- PRODUCTION-READY CONSTRAINTS ---
+    __table_args__ = (
+        CheckConstraint("length(id) >= 2", name="ck_entity_id_length"),
+        # Index hỗ trợ tìm kiếm nhanh theo tên hoặc mã số thuế khi lập chứng từ
+        Index("ix_entities_name_tax", "name", "tax_code"),
+    )
+
+    @validates("tax_code")
+    def validate_tax_code(self, key, value):
+        # Logic MDM Cleanse: Loại bỏ dấu gạch ngang hoặc khoảng trắng trong MST
+        if value:
+            return value.replace("-", "").replace(" ", "")
+        return value
+
+    def __repr__(self) -> str:
+        return f"<Entity(id={self.id}, name={self.name}, type={self.entity_type})>"
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\ledger.py
+==============================================================================
+# Path: source/database/models/ledger.py
+"""
+MODULE: ledger.py
+PURPOSE: Äá»‹nh nghÄ©a báº£ng Sá»• cÃ¡i (General Ledger) - "XÆ°Æ¡ng sá»‘ng" cá»§a dá»¯ liá»‡u káº¿ toÃ¡n.
+LÆ°u trá»¯ toÃ n bá»™ cÃ¡c phÃ¡t sinh kinh táº¿ (bÃºt toÃ¡n) vÃ  liÃªn káº¿t cÃ¡c Ä‘á»‘i tÃ¡c liÃªn quan.
+"""
+
+from sqlalchemy import Column, String, Float, ForeignKey, Date, Integer, JSON
+from sqlalchemy.orm import relationship
+from source.database.foundation import BaseSchema
+
+class GeneralLedger(BaseSchema):
+    """
+    Model Ä‘áº¡i diá»‡n cho Sá»• cÃ¡i káº¿ toÃ¡n (General Ledger).
+
+    Má»—i báº£n ghi trong báº£ng nÃ y tÆ°Æ¡ng á»©ng vá»›i má»™t dÃ²ng Ä‘á»‹nh khoáº£n (Ná»£ hoáº·c CÃ³).
+    Sá»­ dá»¥ng ká»¹ thuáº­t Polymorphic Mapping Ä‘Æ¡n giáº£n Ä‘á»ƒ liÃªn káº¿t linh hoáº¡t vá»›i 
+    KhÃ¡ch hÃ ng (Customer), NhÃ  cung cáº¥p (Vendor) hoáº·c NhÃ¢n viÃªn (Employee).
+
+    Attributes:
+        id (int): KhÃ³a chÃ­nh tá»± tÄƒng.
+        transaction_date (Date): NgÃ y háº¡ch toÃ¡n (NgÃ y ghi sá»•).
+        voucher_no (str): Sá»‘ chá»©ng tá»« gá»‘c (Sá»‘ phiáº¿u thu, phiáº¿u chi, hÃ³a Ä‘Æ¡n).
+        description (str): Diá»…n giáº£i ná»™i dung nghiá»‡p vá»¥.
+        account_id (str): KhÃ³a ngoáº¡i liÃªn káº¿t tá»›i Há»‡ thá»‘ng tÃ i khoáº£n (accounts).
+        partner_id (str): MÃ£ Ä‘á»‹nh danh cá»§a Ä‘á»‘i tÆ°á»£ng liÃªn quan (KhÃ´ng dÃ¹ng FK cá»©ng).
+        partner_type (str): PhÃ¢n loáº¡i Ä‘á»‘i tÆ°á»£ng (CUSTOMER, VENDOR, EMPLOYEE).
+        debit (float): Sá»‘ tiá»n phÃ¡t sinh bÃªn Ná»£.
+        credit (float): Sá»‘ tiá»n phÃ¡t sinh bÃªn CÃ³.
+        currency (str): Loáº¡i tiá»n tá»‡ (Máº·c Ä‘á»‹nh: VND).
+        tags (JSON): LÆ°u trá»¯ cÃ¡c tháº» phÃ¢n loáº¡i bá»• sung (vÃ¹ng miá»n, dá»± Ã¡n, v.v.).
+    """
+    __tablename__ = "general_ledger"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # ThÃ´ng tin chá»©ng tá»«
+    transaction_date = Column(Date, nullable=False, index=True)
+    voucher_no = Column(String, index=True)  # Sá»‘ hiá»‡u chá»©ng tá»« gá»‘c
+    description = Column(String)             # Diá»…n giáº£i chi tiáº¿t nghiá»‡p vá»¥
+
+    # Äá»‹nh khoáº£n Ná»£/CÃ³
+    account_id = Column(String, ForeignKey("accounts.id"), nullable=False, index=True)
+    
+    # Quáº£n lÃ½ Ä‘á»‘i tÆ°á»£ng cÃ´ng ná»£ linh hoáº¡t
+    partner_id = Column(String, index=True, nullable=True) 
+    partner_type = Column(String, index=True, nullable=True) # VD: 'CUSTOMER', 'VENDOR', 'EMPLOYEE'
+
+    # GiÃ¡ trá»‹ giao dá»‹ch
+    debit = Column(Float, default=0.0)
+    credit = Column(Float, default=0.0)
+    currency = Column(String, default="VND")
+
+    # ThÃ´ng tin má»Ÿ rá»™ng cho bÃ¡o cÃ¡o quáº£n trá»‹
+    tags = Column(JSON) 
+
+    # Thiáº¿t láº­p má»‘i quan há»‡ vá»›i báº£ng TÃ i khoáº£n
+    account = relationship("Account")
+
+    def __repr__(self):
+        """Tráº£ vá» Ä‘áº¡i diá»‡n chuá»—i cá»§a bÃºt toÃ¡n Ä‘á»ƒ phá»¥c vá»¥ logging/debugging."""
+        return f"<Ledger(Date={self.transaction_date}, Acc={self.account_id}, Debit={self.debit}, Credit={self.credit})>"
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\master_data.py
+==============================================================================
+# PATH: D:\tt99acct\source/database/models/master_data.py
+"""
+PATH: source/database/models/master_data.py
+STATUS: Production-ready
+DESCRIPTION: 
+    Quản lý danh mục tài khoản (Chart of Accounts) và các danh mục gốc.
+    Thiết kế hỗ trợ cấu trúc cây (Parent-Child) vô hạn cấp để đáp ứng TT99.
+LOGIC:
+    - Chỉ tài khoản cấp LÁ (is_leaf=True) mới được phép hạch toán nghiệp vụ.
+    - Xử lý ràng buộc RESTRICT: Không cho xóa tài khoản cha nếu còn tài khoản con.
+"""
+
+from typing import List, Optional
+from sqlalchemy import String, Boolean, ForeignKey, Index, CheckConstraint, Numeric
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+from ..base import Base, EnterpriseMixin
+
+class AccountModel(Base, EnterpriseMixin):
+    """
+    Model Tài khoản kế toán.
+    Đáp ứng tiêu chuẩn Production: Indexing cho báo cáo nhanh, Constraints bảo vệ dữ liệu.
+    """
+    __tablename__ = "accounts"
+
+    # --- ĐỊNH DANH & THÔNG TIN GỐC ---
+    id: Mapped[str] = mapped_column(String(20), primary_key=True, comment="Số hiệu tài khoản (Ví dụ: 1111)")
+    name: Mapped[str] = mapped_column(String(255), nullable=False, comment="Tên gọi tài khoản")
+    
+    # --- CẤU TRÚC CÂY (HIERARCHY) ---
+    parent_id: Mapped[Optional[str]] = mapped_column(
+        String(20), 
+        ForeignKey("accounts.id", ondelete="RESTRICT"), # Bảo vệ: Không xóa cha khi còn con
+        nullable=True,
+        index=True
+    )
+    
+    is_leaf: Mapped[bool] = mapped_column(
+        Boolean, 
+        default=True, 
+        index=True, 
+        comment="True nếu là tài khoản chi tiết cuối cùng"
+    )
+    
+    level: Mapped[int] = mapped_column(
+        default=1, 
+        comment="Cấp độ tài khoản (1, 2, 3...)"
+    )
+
+    # --- TÍNH CHẤT KẾ TOÁN (TT99) ---
+    # Ví dụ: Asset (Tài sản), Liability (Nợ phải trả), Equity (Nguồn vốn)...
+    acc_type: Mapped[str] = mapped_column(String(20), index=True, comment="Loại tài khoản")
+    
+    # Tính chất số dư: DEBIT (Nợ), CREDIT (Có), BOTH (Lưỡng tính)
+    nature: Mapped[str] = mapped_column(String(10), default="DEBIT")
+
+    # --- QUAN HỆ ĐỆ QUY ---
+    children: Mapped[List["AccountModel"]] = relationship(
+        "AccountModel", backref="parent", remote_side=[id]
+    )
+
+    # --- PRODUCTION-READY CONSTRAINTS ---
+    __table_args__ = (
+        # Đảm bảo mã tài khoản không trống
+        CheckConstraint("length(id) > 0", name="ck_account_id_not_empty"),
+        # Chỉ mục tìm kiếm nhanh theo tên cho kế toán khi gõ tìm kiếm
+        Index("ix_accounts_name_search", "name"),
+    )
+
+    # --- VALIDATION LOGIC ---
+    @validates("id")
+    def validate_id(self, key, value):
+        if not value or len(value) < 1:
+            raise ValueError("Mã tài khoản không được để trống.")
+        return value
+
+    def __repr__(self) -> str:
+        return f"<Account(id={self.id}, name={self.name}, leaf={self.is_leaf})>"
+
+class CurrencyModel(Base, EnterpriseMixin):
+    """
+    Danh mục Tiền tệ.
+    Sử dụng kiểu Numeric cho tỷ giá để đảm bảo độ chính xác tài chính.
+    """
+    __tablename__ = "currencies"
+    
+    code: Mapped[str] = mapped_column(String(3), primary_key=True, comment="Mã tiền tệ (VND, USD)")
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    
+    # Sử dụng Numeric thay vì Float để tránh sai số lũy kế trong kế toán
+    exchange_rate: Mapped[float] = mapped_column(Numeric(18, 4), default=1.0)
+    is_base: Mapped[bool] = mapped_column(Boolean, default=False, comment="Đồng tiền hạch toán chính")
+
+    def __repr__(self) -> str:
+        return f"<Currency(code={self.code}, rate={self.exchange_rate})>"
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\vendors.py
+==============================================================================
+from sqlalchemy import Column, String, Boolean, JSON, ForeignKey
+from sqlalchemy.orm import relationship
+from source.database.foundation import BaseSchema
+
+class Vendor(BaseSchema):
+    """Danh má»¥c NhÃ  cung cáº¥p - Procurement & Payables"""
+    __tablename__ = "vendors"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    tax_code = Column(String, index=True)
+    address = Column(String)
+    email = Column(String)
+    phone = Column(String)
+    
+    is_active = Column(Boolean, default=True)
+
+    # TÃ i khoáº£n cÃ´ng ná»£ máº·c Ä‘á»‹nh (thÆ°á»ng lÃ  331)
+    default_payable_acc_id = Column(String, ForeignKey("accounts.id"))
+    default_account = relationship("Account")
+
+    # LÆ°u bank_info, payment_terms, lead_time... tá»« JSON
+    metadata_info = Column(JSON)
+
+    def __repr__(self):
+        return f"<Vendor(id={self.id}, name={self.name})>"
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\database\models\__init__.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\schemas\master_schemas.py
+==============================================================================
+"""
+PATH: source/schemas/master_schemas.py
+STATUS: Production-ready
+DESCRIPTION: Äá»‹nh nghÄ©a mÃ ng lá»c dá»¯ liá»‡u cho táº¥t cáº£ Master Data.
+"""
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class EntityJSONSchema(BaseModel):
+    id: str = Field(..., min_length=1, description="MÃ£ Ä‘á»‘i tÆ°á»£ng (KH001, NCC002)")
+    name: str = Field(..., min_length=2)
+    tax_code: Optional[str] = None
+    address: Optional[str] = None
+    entity_type: str = Field(..., description="VÃ dá»¥: CUSTOMER, VENDOR, EMPLOYEE")
+
+class BudgetSourceJSONSchema(BaseModel):
+    id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=2)
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\security\__init__.py
+==============================================================================
+# PATH: D:\tt99acct\source/security/__init__.py
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\services\data_ingestion.py
+==============================================================================
+# Path: source/services/data_ingestion.py
+"""
+SERVICE: Data Ingestion
+PURPOSE: Chuyá»ƒn Ä‘á»•i dá»¯ liá»‡u thÃ´ tá»« file JSON sang cÃ¡c báº£n ghi SQL Database.
+Xá»­ lÃ½ thÃ´ng minh cÃ¡c trÆ°á»ng dá»¯ liá»‡u Ä‘á»™ng thÃ´ng qua metadata_info.
+"""
+
+import json
+import os
+from sqlalchemy.orm import Session
+from sqlalchemy.dialects.sqlite import insert
+from source.database.models.accounts import Account
+from source.database.models.customers import Customer
+from source.database.models.vendors import Vendor
+from source.database.models.employees import Employee
+
+class DataIngestionService:
+    def __init__(self):
+        self.model_map = {
+            "accounts": Account,
+            "customers": Customer,
+            "vendors": Vendor,
+            "employees": Employee
+        }
+
+    def _extract_metadata(self, model, data: dict):
+        """TÃ¡ch cÃ¡c trÆ°á»ng khÃ´ng cÃ³ trong Schema Ä‘á»ƒ Ä‘áº©y vÃ o metadata_info."""
+        main_columns = model.__table__.columns.keys()
+        main_data = {}
+        metadata = {}
+
+        for key, value in data.items():
+            if key in main_columns:
+                main_data[key] = value
+            else:
+                metadata[key] = value
+        
+        if "metadata_info" in main_columns:
+            main_data["metadata_info"] = metadata
+            
+        return main_data
+
+    def ingest_json(self, db: Session, target_type: str, file_path: str):
+        """Náº¡p dá»¯ liá»‡u tá»« JSON vÃ o Database theo cÆ¡ cháº¿ Upsert."""
+        if not os.path.exists(file_path):
+            print(f"âš ï¸ Warning: Missing {file_path}")
+            return
+
+        model = self.model_map.get(target_type)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            records = json.load(f)
+
+        for record in records:
+            clean_data = self._extract_metadata(model, record)
+            stmt = insert(model).values(**clean_data)
+            # Náº¿u trÃ¹ng ID, thá»±c hiá»‡n cáº­p nháº­t (Update)
+            stmt = stmt.on_conflict_do_update(index_elements=['id'], set_=clean_data)
+            db.execute(stmt)
+        
+        db.commit()
+        print(f"âœ… Ingested {len(records)} records into {target_type.upper()}.")
+
+ingestion_service = DataIngestionService()
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\services\post_service.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\services\report_service.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\services\sync_service.py
+==============================================================================
+"""
+PATH: source/services/sync_service.py
+STATUS: Production-ready
+REVISION: 
+    - Chuyá»ƒn Ä‘á»•i sang kiáº¿n trÃºc Multi-Domain Master Data.
+    - TÃ­ch há»£p náº¡p Ä‘á»“ng thá»i Accounts vÃ  Entities.
+DESCRIPTION: 
+    Há»‡ thá»‘ng náº¡p dá»¯ liá»‡u táº­p trung (Master Data Hub).
+    Äáº£m báº£o lÃ m sáº¡ch dá»¯ liá»‡u (Cleansing) vÃ  báº£o vá»‡ giao dá»‹ch (Atomicity).
+"""
+
+import json
+import os
+from typing import Type, List, Dict, Any
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from pydantic import ValidationError
+
+from ..database.base import Base
+from ..database.models.master_data import AccountModel
+from ..database.models.entities import EntityModel
+from ..schemas.master_schemas import AccountJSONSchema, EntityJSONSchema
+
+class SyncService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def sync_all_master_data(self, data_map: Dict[str, str]):
+        """
+        Náº¡p Ä‘á»“ng thá»i nhiá»u loáº¡i danh má»¥c.
+        data_map: {'accounts': 'path/to/acc.json', 'entities': 'path/to/ent.json'}
+        """
+        print("--- [START GLOBAL SYNC SESSION] ---")
+        try:
+            # 1. Náº¡p Accounts (Xá»­ lÃ½ cáº¥u trÃºc cÃ¢y Ä‘áº·c thÃ¹)
+            if 'accounts' in data_map:
+                self._sync_domain(
+                    file_path=data_map['accounts'],
+                    model_class=AccountModel,
+                    schema_class=AccountJSONSchema,
+                    domain_name="Accounts"
+                )
+                self._update_account_hierarchy()
+
+            # 2. Náº¡p Entities (Äá»‘i tÆ°á»£ng KH, NCC)
+            if 'entities' in data_map:
+                self._sync_domain(
+                    file_path=data_map['entities'],
+                    model_class=EntityModel,
+                    schema_class=EntityJSONSchema,
+                    domain_name="Entities"
+                )
+
+            self.db.commit()
+            print("--- [GLOBAL SYNC COMPLETED SUCCESSFULLY] ---")
+        except Exception as e:
+            self.db.rollback()
+            print(f"--- [GLOBAL SYNC FAILED] Critical Error: {str(e)} ---")
+            raise e
+
+    def _sync_domain(self, file_path: str, model_class: Type[Base], schema_class: Any, domain_name: str):
+        """HÃ m náº¡p dá»¯ liá»‡u Generic cho cÃ¡c danh má»¥c pháº³ng"""
+        if not os.path.exists(file_path):
+            print(f"[SKIP] {domain_name}: File not found at {file_path}")
+            return
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            raw_data = json.load(f)
+
+        print(f"[INFO] Syncing {domain_name}: {len(raw_data)} records...")
+
+        for item in raw_data:
+            try:
+                # MDM Step 1: Validation & Cleansing báº±ng Pydantic
+                valid_data = schema_class(**item)
+                data_dict = valid_data.dict()
+
+                # MDM Step 2: Upsert logic (Dá»±a trÃªn Primary Key 'id')
+                stmt = select(model_class).filter(model_class.id == data_dict['id'])
+                existing_record = self.db.execute(stmt).scalar_one_or_none()
+
+                if existing_record:
+                    # Cáº­p nháº­t cÃ¡c trÆ°á»ng dá»¯ liá»‡u (trá»« ID)
+                    for key, value in data_dict.items():
+                        setattr(existing_record, key, value)
+                else:
+                    # ThÃªm má»›i
+                    new_record = model_class(**data_dict)
+                    self.db.add(new_record)
+
+            except ValidationError as ve:
+                print(f"[ERROR] {domain_name} ID {item.get('id')}: Validation failed. {ve.json()}")
+                raise ve
+
+    def _update_account_hierarchy(self):
+        """
+        Logic Ä‘áº·c thÃ¹ cho tÃ i khoáº£n: Tá»± Ä‘á»™ng tÃ­nh level vÃ  is_leaf.
+        ÄÃ¢y lÃ  bÆ°á»›c xá»­ lÃ½ háº­u ká»³ (Post-processing) sau khi Ä‘Ã£ náº¡p thÃ´.
+        """
+        print("[INFO] Accounts: Re-calculating hierarchy (is_leaf, level)...")
+        self.db.flush()
+        all_accs = self.db.query(AccountModel).all()
+        parent_ids = {a.parent_id for a in all_accs if a.parent_id}
+
+        for acc in all_accs:
+            acc.is_leaf = acc.id not in parent_ids
+            # Logic tÃ­nh Level nhanh
+            depth = 1
+            curr_parent = acc.parent_id
+            while curr_parent:
+                depth += 1
+                parent_obj = next((p for p in all_accs if p.id == curr_parent), None)
+                curr_parent = parent_obj.parent_id if parent_obj else None
+            acc.level = depth
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\source\services\__init__.py
+==============================================================================
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\tests\conftest.py
+==============================================================================
+"""
+PATH: D:/TT99ACCT/tests/conftest.py
+ROLE: Cáº¥u hÃ¬nh mÃ´i trÆ°á»ng Test Suite
+"""
+
+import pytest
+import os
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_environment():
+    # PM: Äáº£m báº£o cÃ¡c thÆ° má»¥c data tá»“n táº¡i trÆ°á»›c khi test
+    os.makedirs("data/db", exist_ok=True)
+    os.makedirs("data/master_data", exist_ok=True)
+    yield
+    # CÃ³ thá»ƒ thÃªm logic dá»n dáº¹p sau khi test xong táº¡i Ä‘Ã¢y
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\tests\test_accounting.py
+==============================================================================
+"""
+PATH: D:/TT99ACCT/tests/test_accounting.py
+"""
+
+import random
+import pytest
+from datetime import datetime
+from source.services.accounting_service import ACC_SERVICE
+
+
+def test_unbalanced_voucher():
+    """TC-01: Kiá»ƒm tra chá»©ng tá»« khÃ´ng cÃ¢n (Ná»£ != CÃ³)"""
+    entries = [
+        {"account_id": "131", "debit": 1000, "credit": 0, "entity_id": "KH_001"},
+        {"account_id": "511", "debit": 0, "credit": 500},  # Cá»‘ tÃ¬nh lÃ m lá»‡ch
+    ]
+    status, msg = ACC_SERVICE.post_voucher(
+        "PK", "TEST_Lá»†CH", datetime.now(), "Test", entries
+    )
+
+    assert status is False
+    assert "khÃ´ng cÃ¢n" in msg.lower()
+
+
+def test_invalid_account_id():
+    """TC-02: Kiá»ƒm tra tÃ i khoáº£n khÃ´ng cÃ³ trong danh má»¥c Master"""
+    entries = [{"account_id": "9999", "debit": 100, "credit": 100}]
+    status, msg = ACC_SERVICE.post_voucher(
+        "PK", "TEST_TK", datetime.now(), "Test", entries
+    )
+
+    assert status is False
+    assert "khÃ´ng tá»“n táº¡i" in msg.lower()
+
+
+def test_trial_balance_consistency():
+    """TC-A03: Kiá»ƒm tra tÃ­nh cÃ¢n Ä‘á»‘i tuyá»‡t Ä‘á»‘i cá»§a Báº£ng cÃ¢n Ä‘á»‘i phÃ¡t sinh"""
+    # 1. Táº¡o dá»¯ liá»‡u ngáº«u nhiÃªn nhÆ°ng pháº£i cÃ¢n Ä‘á»‘i
+    for i in range(10):
+        amount = random.randint(1000, 1000000)
+        v_no = f"TEST_TB_{i}"
+        entries = [
+            {
+                "account_id": "111",
+                "debit": amount,
+                "credit": 0,
+                "description": "Thu tiá»n",
+            },
+            {
+                "account_id": "511",
+                "debit": 0,
+                "credit": amount,
+                "description": "Doanh thu",
+            },
+        ]
+        ACC_SERVICE.post_voucher("PT", v_no, datetime.now(), f"Test TB {i}", entries)
+
+    # 2. Gá»i hÃ m lÃµi Ä‘á»ƒ láº¥y Trial Balance
+    tb = ACC_SERVICE.get_trial_balance()
+
+    # 3. QA Assertions
+    assert tb["is_balanced"] is True, "Báº£ng cÃ¢n Ä‘á»‘i phÃ¡t sinh bá»‹ lá»‡ch Ná»£/CÃ³!"
+    assert tb["grand_total_debit"] == tb["grand_total_credit"]
+    print(f"\n[QA Check] Tá»•ng phÃ¡t sinh Ná»£: {tb['grand_total_debit']:,.0f}")
+    print(f"[QA Check] Tá»•ng phÃ¡t sinh CÃ³: {tb['grand_total_credit']:,.0f}")
+
+
+def test_trial_balance_data_structure():
+    """TC-A04: Kiá»ƒm tra cáº¥u trÃºc dá»¯ liá»‡u tráº£ vá» cá»§a Trial Balance"""
+    tb = ACC_SERVICE.get_trial_balance()
+
+    assert "details" in tb
+    assert isinstance(tb["details"], list)
+    if len(tb["details"]) > 0:
+        first_row = tb["details"][0]
+        assert "account_id" in first_row
+        assert "debit" in first_row
+        assert "credit" in first_row
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\tests\test_entities.py
+==============================================================================
+import pytest
+import time
+import random
+from source.services.entity_service import ENTITY_SERVICE
+
+
+def test_create_entity_success():
+    """TC-E01: Táº¡o má»›i Ä‘á»‘i tÆ°á»£ng há»£p lá»‡ vá»›i MST ngáº«u nhiÃªn"""
+    unique_suffix = int(time.time()) + random.randint(1, 1000)
+    status, msg = ENTITY_SERVICE.create_entity(
+        entity_id=f"ENT_{unique_suffix}",
+        name="TEST SUCCESS",
+        tax_code=f"TAX_{unique_suffix}",  # Äáº£m báº£o khÃ´ng bao giá» trÃ¹ng MST
+        e_type="KH",
+    )
+    assert status is True, f"NÃªn thÃ nh cÃ´ng nhÆ°ng lá»—i: {msg}"
+
+
+def test_duplicate_tax_code():
+    """TC-E02: Cháº·n trÃ¹ng mÃ£ sá»‘ thuáº¿"""
+    unique_tax = f"ST_{int(time.time())}"
+    # Táº¡o phÃ¡t Ä‘áº§u
+    ENTITY_SERVICE.create_entity("ID_1", "NAME 1", unique_tax, "KH")
+    # Táº¡o phÃ¡t hai trÃ¹ng MST
+    status, msg = ENTITY_SERVICE.create_entity("ID_2", "NAME 2", unique_tax, "KH")
+
+    assert status is False
+    assert "UNIQUE constraint failed" in msg
+
+
+def test_entity_id_required():
+    """TC-E03: Kiá»ƒm tra thÃ´ng bÃ¡o lá»—i chuáº©n Architect Ä‘á» xuáº¥t"""
+    status, msg = ENTITY_SERVICE.create_entity(
+        entity_id="  ",  # Test khoáº£ng tráº¯ng nhÆ° CFO yÃªu cáº§u
+        name="Lá»–I",
+        tax_code="123456",
+        e_type="KH",
+    )
+    assert status is False
+    assert "entity_id is required" in msg.lower()
+
+
+
+==============================================================================
+FILE PATH: D:\tt99acct\tests\__init__.py
+==============================================================================
+
+
