@@ -11,6 +11,7 @@ Yêu cầu pháp lý:
 from dataclasses import dataclass
 from datetime import date
 
+
 @dataclass(frozen=True)
 class AccountingPeriod:
     """
@@ -22,6 +23,7 @@ class AccountingPeriod:
         end_date (date): Ngày kết thúc kỳ.
         is_closed (bool): Trạng thái đã khóa sổ hay chưa.
     """
+
     code: str
     start_date: date
     end_date: date

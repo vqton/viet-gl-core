@@ -14,6 +14,7 @@ from datetime import date
 from decimal import Decimal
 from typing import List
 
+
 @dataclass(frozen=True)
 class SalesLineItem:
     """
@@ -26,11 +27,13 @@ class SalesLineItem:
         unit_price (Decimal): Đơn giá.
         is_promotion (bool): Có phải hàng khuyến mãi không.
     """
+
     sku: str
     name: str
     quantity: Decimal
     unit_price: Decimal
     is_promotion: bool = False
+
 
 @dataclass(frozen=True)
 class SalesInvoice:
@@ -46,13 +49,14 @@ class SalesInvoice:
         line_items (List[SalesLineItem]): Danh sách hàng hóa.
         vat_rate (Decimal): Tỷ lệ thuế GTGT.
     """
+
     invoice_number: str
     invoice_date: date
     seller_tax_code: str
     buyer_name: str
     buyer_tax_code: str
     line_items: List[SalesLineItem]
-    vat_rate: Decimal = Decimal('0.1')
+    vat_rate: Decimal = Decimal("0.1")
 
     @property
     def total_amount(self) -> Decimal:

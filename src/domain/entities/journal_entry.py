@@ -1,45 +1,39 @@
-"""
-Module: JournalEntry
-
-Đại diện cho một bút toán kế toán hợp lệ theo Thông tư 99/2025/TT-BTC.
-
-Yêu cầu pháp lý:
-- Mỗi bút toán phải có chứng từ gốc (Điều 12 TT 99)
-- Phải ghi nhận theo ngày phát sinh (Điều 13 TT 99)
-- Phải lưu vết người lập, thời gian (Điều 27 TT 99)
-"""
-
 from dataclasses import dataclass
 from datetime import datetime, date
 from decimal import Decimal
+from enum import Enum
+
+
+class JournalEntryStatus(Enum):
+    DRAFT = "draft"
+    APPROVED = "approved"
+    CLOSED = "closed"
+    ADJUSTED = "adjusted"
+
 
 @dataclass(frozen=True)
 class JournalEntry:
     """
-    Bút toán kế toán bất biến, có audit trail đầy đủ.
-
-    Attributes:
-        account (str): Mã tài khoản theo Phụ lục II TT 99.
-        debit (Decimal): Số tiền Nợ (>= 0).
-        credit (Decimal): Số tiền Có (>= 0).
-        description (str): Diễn giải nghiệp vụ.
-        source_document_id (str): ID chứng từ gốc (hóa đơn, phiếu kho...).
-        accounting_date (date): Ngày ghi sổ kế toán.
-        created_by (str): ID người lập (bắt buộc theo Điều 27 TT 99).
-        created_at (datetime): Thời điểm tạo bút toán.
-        adjustment_reason (str): Lý do điều chỉnh (nếu có).
-
-    Raises:
-        ValueError: Nếu số tiền âm hoặc vừa Nợ vừa Có.
+    Bút toán kế toán với đầy đủ audit trail và versioning theo TT 99.
     """
+
+    # 🔸 PHẦN 1: Các trường BẮT BUỘC (không có giá trị mặc định)
     account: str
     debit: Decimal
     credit: Decimal
     description: str
     source_document_id: str
     accounting_date: date
-    created_by: str
+    accounting_period_code: str
+    created_by: str  # ← Di chuyển lên trên
     created_at: datetime
+    approved_by: str
+    approved_at: datetime
+
+    # 🔸 PHẦN 2: Các trường TÙY CHỌN (có giá trị mặc định)
+    status: JournalEntryStatus = JournalEntryStatus.DRAFT
+    original_entry_id: str = ""
+    is_reversal: bool = False
     adjustment_reason: str = ""
 
     def __post_init__(self):

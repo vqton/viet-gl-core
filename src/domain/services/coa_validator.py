@@ -13,9 +13,10 @@ from pathlib import Path
 from decimal import Decimal
 
 # Tải COA một lần khi module được import
-COA_PATH = Path(__file__).parent.parent / "rules" / "coa_99_full.json"
+COA_PATH = Path(__file__).parent.parent / "rules" / "coa_99.json"
 with open(COA_PATH, encoding="utf-8") as f:
     COA = json.load(f)
+
 
 def is_valid_account(account_code: str) -> bool:
     """
@@ -28,6 +29,7 @@ def is_valid_account(account_code: str) -> bool:
         bool: True nếu hợp lệ.
     """
     return account_code in COA
+
 
 def is_debit_allowed(account_code: str) -> bool:
     """
@@ -46,6 +48,7 @@ def is_debit_allowed(account_code: str) -> bool:
     if account_type in ("revenue", "other_revenue"):
         return False
     return True
+
 
 def is_credit_allowed(account_code: str) -> bool:
     """

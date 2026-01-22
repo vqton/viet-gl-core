@@ -12,19 +12,19 @@ from typing import List
 from decimal import Decimal, ROUND_HALF_UP
 from domain.value_objects.inventory_transaction import InventoryTransaction
 
+
 class InventoryValuationService:
     """Dịch vụ tính giá vốn hàng bán."""
 
     @staticmethod
     def calculate_cogs_fifo(
-        inventory_layers: List[InventoryTransaction],
-        quantity_to_sell: Decimal
+        inventory_layers: List[InventoryTransaction], quantity_to_sell: Decimal
     ) -> Decimal:
         """
         Tính giá vốn hàng bán theo phương pháp FIFO.
 
         Args:
-            inventory_layers (List[InventoryTransaction]): 
+            inventory_layers (List[InventoryTransaction]):
                 Danh sách giao dịch tồn kho (theo thứ tự thời gian).
             quantity_to_sell (Decimal): Số lượng cần bán.
 
@@ -34,13 +34,11 @@ class InventoryValuationService:
         Raises:
             ValueError: Nếu tồn kho không đủ để xuất.
         """
-        total_available = sum(
-            t.quantity for t in inventory_layers if t.type == "IN"
-        )
+        total_available = sum(t.quantity for t in inventory_layers if t.type == "IN")
         if total_available < quantity_to_sell:
             raise ValueError("Tồn kho không đủ để xuất")
 
-        cogs = Decimal('0')
+        cogs = Decimal("0")
         remaining = quantity_to_sell
 
         for layer in inventory_layers:
@@ -53,4 +51,4 @@ class InventoryValuationService:
             cogs += take * layer.unit_cost
             remaining -= take
 
-        return cogs.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        return cogs.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
