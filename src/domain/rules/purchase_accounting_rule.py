@@ -11,7 +11,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from src.domain.entities.journal_entry import JournalEntry, JournalEntryStatus
 from src.domain.value_objects.purchase_invoice import PurchaseInvoice
-from src.domain.services.coa_validator import is_valid_account
+from src.domain.validators.coa_validator import is_valid_account
 
 
 def apply_purchase_rule(

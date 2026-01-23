@@ -12,7 +12,7 @@ Yêu cầu pháp lý:
 from datetime import datetime
 from typing import List
 from domain.entities.journal_entry import JournalEntry, JournalEntryStatus
-from domain.services.coa_validator import (
+from domain.validators.coa_validator import (
     is_valid_account,
     is_debit_allowed,
     is_credit_allowed,
