@@ -25,12 +25,12 @@ class IDebtRepository:
     
     def save(self, dto: DebtCreationDTO) -> str:
         """Lưu công nợ mới."""
-        raise NotImplementedError("Phải được triển khai trong adapter layer")
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")
     
     def find_by_party_id(self, party_id: str) -> List[DebtCreationDTO]:
         """Tìm công nợ theo đối tượng."""
-        raise NotImplementedError("Phải được triển khai trong adapter layer")
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")
     
     def get_total_balance(self, party_id: str) -> Decimal:
         """Lấy tổng số dư công nợ."""
-        raise NotImplementedError("Phải được triển khai trong adapter layer")
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")
