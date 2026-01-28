@@ -14,22 +14,23 @@ Lưu ý:
 
 from src.application.dtos.accounting_policy_dto import AccountingPolicyDTO
 
+
 class IAccountingPolicyService:
     """
     Interface truy xuất chính sách kế toán.
-    
+
     Methods:
         get_current_policy() -> AccountingPolicyDTO:
             Lấy chính sách kế toán hiện tại của doanh nghiệp.
     """
-    
+
     def get_current_policy(self) -> AccountingPolicyDTO:
         """
         Lấy chính sách kế toán hiện tại.
-        
+
         Returns:
             AccountingPolicyDTO: Chính sách đang áp dụng.
-            
+
         Raises:
             NotImplementedError: Vì đây là interface.
         """

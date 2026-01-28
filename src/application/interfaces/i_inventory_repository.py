@@ -15,25 +15,26 @@ Lưu ý:
 from typing import List
 from src.domain.value_objects.inventory_transaction import InventoryTransaction
 
+
 class IInventoryRepository:
     """
     Interface quản lý tồn kho.
-    
+
     Methods:
         get_transactions_by_sku(sku: str) -> List[InventoryTransaction]:
             Lấy toàn bộ giao dịch tồn kho của một mã hàng.
     """
-    
+
     def get_transactions_by_sku(self, sku: str) -> List[InventoryTransaction]:
         """
         Lấy danh sách giao dịch tồn kho theo mã hàng.
-        
+
         Args:
             sku (str): Mã hàng hóa (ví dụ: "SKU01").
-            
+
         Returns:
             List[InventoryTransaction]: Danh sách giao dịch theo thứ tự thời gian.
-            
+
         Raises:
             NotImplementedError: Vì đây là interface.
         """

@@ -11,11 +11,12 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+
 @dataclass(frozen=True)
 class InventoryTransaction:
     """
     Giao dịch tồn kho.
-    
+
     Attributes:
         item_sku (str): Mã hàng hóa.
         quantity (Decimal): Số lượng.
@@ -24,6 +25,7 @@ class InventoryTransaction:
         type (str): Loại giao dịch ("IN" hoặc "OUT").
         lot_id (str): Mã lô hàng (bắt buộc nếu dùng đích danh, mặc định "").
     """
+
     item_sku: str
     quantity: Decimal
     unit_cost: Decimal

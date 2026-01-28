@@ -24,6 +24,7 @@ from src.domain.value_objects.inventory_transaction import InventoryTransaction
 from src.domain.rules.inventory_valuation_rules import calculate_cogs_fifo
 from src.domain.validators.coa_validator import is_valid_account
 
+
 def apply_sales_rule(
     invoice: SalesInvoice,
     inventory_transactions: List[InventoryTransaction],
@@ -33,20 +34,20 @@ def apply_sales_rule(
     created_by: str,
     created_at: datetime,
     approved_by: str,
-    approved_at: datetime
+    approved_at: datetime,
 ) -> List[JournalEntry]:
     """
     Áp dụng luật hạch toán bán hàng theo Thông tư 99/2025/TT-BTC.
-    
+
     Yêu cầu pháp lý:
     - Điều 19: Ghi nhận doanh thu tại thời điểm giao hàng
     - TK 5111: Doanh thu bán hàng hóa
     - TK 33311: Thuế GTGT đầu ra
     - TK 632/156: Giá vốn thực tế
-    
+
     Args:
         invoice (SalesInvoice): Hóa đơn bán hàng hợp lệ.
-        inventory_transactions (List[InventoryTransaction]): 
+        inventory_transactions (List[InventoryTransaction]):
             Danh sách giao dịch tồn kho liên quan đến các SKU trong hóa đơn.
         document_id (str): ID chứng từ gốc (số hóa đơn hoặc UUID).
         accounting_date (date): Ngày ghi sổ kế toán (thường = ngày hóa đơn).
@@ -55,15 +56,15 @@ def apply_sales_rule(
         created_at (datetime): Thời điểm tạo bút toán.
         approved_by (str): ID người duyệt (kế toán trưởng).
         approved_at (datetime): Thời điểm duyệt bút toán.
-        
+
     Returns:
         List[JournalEntry]: Danh sách bút toán đã được duyệt, tuân thủ TT 99.
-        
+
     Raises:
-        ValueError: 
+        ValueError:
             - Nếu tài khoản không hợp lệ theo hệ thống TT 99
             - Nếu tồn kho không đủ để xuất hàng
-            
+
     Example:
         >>> invoice = SalesInvoice(...)
         >>> inventory = [InventoryTransaction(...)]
@@ -87,7 +88,7 @@ def apply_sales_rule(
         JournalEntry(
             account="131",
             debit=total_with_vat,
-            credit=Decimal('0'),
+            credit=Decimal("0"),
             description=f"Phải thu KH: {invoice.buyer_name}",
             source_document_id=document_id,
             accounting_date=accounting_date,
@@ -99,11 +100,11 @@ def apply_sales_rule(
             status="approved",  # Trạng thái đã được duyệt
             original_entry_id="",
             is_reversal=False,
-            adjustment_reason=""
+            adjustment_reason="",
         ),
         JournalEntry(
             account="5111",
-            debit=Decimal('0'),
+            debit=Decimal("0"),
             credit=invoice.total_amount,
             description="Doanh thu bán hàng hóa",
             source_document_id=document_id,
@@ -116,11 +117,11 @@ def apply_sales_rule(
             status="approved",
             original_entry_id="",
             is_reversal=False,
-            adjustment_reason=""
+            adjustment_reason="",
         ),
         JournalEntry(
             account="33311",
-            debit=Decimal('0'),
+            debit=Decimal("0"),
             credit=invoice.vat_amount,
             description="Thuế GTGT phải nộp",
             source_document_id=document_id,
@@ -133,12 +134,12 @@ def apply_sales_rule(
             status="approved",
             original_entry_id="",
             is_reversal=False,
-            adjustment_reason=""
+            adjustment_reason="",
         ),
         JournalEntry(
             account="632",
             debit=cogs,
-            credit=Decimal('0'),
+            credit=Decimal("0"),
             description="Giá vốn hàng bán",
             source_document_id=document_id,
             accounting_date=accounting_date,
@@ -150,11 +151,11 @@ def apply_sales_rule(
             status="approved",
             original_entry_id="",
             is_reversal=False,
-            adjustment_reason=""
+            adjustment_reason="",
         ),
         JournalEntry(
             account="156",
-            debit=Decimal('0'),
+            debit=Decimal("0"),
             credit=cogs,
             description="Xuất kho hàng hóa",
             source_document_id=document_id,
@@ -167,6 +168,6 @@ def apply_sales_rule(
             status="approved",
             original_entry_id="",
             is_reversal=False,
-            adjustment_reason=""
-        )
+            adjustment_reason="",
+        ),
     ]
