@@ -1,14 +1,7 @@
 """
 Module: Journal Entry Repository Interface
 
-Định nghĩa hợp đồng lưu trữ bút toán kế toán.
-
-Yêu cầu pháp lý:
-- Điều 27 TT 99: Phải lưu trữ đầy đủ audit trail
-- Phải hỗ trợ truy vấn theo chứng từ, kỳ kế toán, tài khoản
-
-Lưu ý:
-- Không chứa logic nghiệp vụ — chỉ định nghĩa hành vi
+Định nghĩa hợp đồng truy xuất bút toán kế toán.
 """
 
 from typing import List, Optional
@@ -25,31 +18,41 @@ class IJournalEntryRepository:
 
         find_by_document_id(document_id: str) -> List[JournalEntry]:
             Tìm bút toán theo ID chứng từ gốc.
+
+        find_by_account(account: str, period: str) -> List[JournalEntry]:
+            Tìm bút toán theo tài khoản và kỳ kế toán.
+
+        get_all_entries(period: str) -> List[JournalEntry]:
+            Lấy toàn bộ bút toán trong kỳ.
     """
 
     def save(self, entry: JournalEntry) -> None:
-        """
-        Lưu bút toán kế toán.
-
-        Args:
-            entry (JournalEntry): Bút toán cần lưu.
-
-        Raises:
-            NotImplementedError: Vì đây là interface.
-        """
-        raise NotImplementedError("Phải được triển khai trong adapter layer")
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")
 
     def find_by_document_id(self, document_id: str) -> List[JournalEntry]:
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")
+
+    def find_by_account(self, account: str, period: str) -> List[JournalEntry]:
         """
-        Tìm bút toán theo ID chứng từ gốc.
+        Tìm bút toán theo tài khoản và kỳ kế toán.
 
         Args:
-            document_id (str): ID chứng từ (ví dụ: số hóa đơn).
+            account (str): Mã tài khoản (ví dụ: "111", "131")
+            period (str): Kỳ kế toán (ví dụ: "2026-Q2")
 
         Returns:
-            List[JournalEntry]: Danh sách bút toán liên quan.
-
-        Raises:
-            NotImplementedError: Vì đây là interface.
+            List[JournalEntry]: Danh sách bút toán
         """
-        raise NotImplementedError("Phải được triển khai trong adapter layer")
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")
+
+    def get_all_entries(self, period: str) -> List[JournalEntry]:
+        """
+        Lấy toàn bộ bút toán trong kỳ.
+
+        Args:
+            period (str): Kỳ kế toán
+
+        Returns:
+            List[JournalEntry]: Toàn bộ bút toán
+        """
+        raise NotImplementedError("Phải được triển khai trong infrastructure layer")

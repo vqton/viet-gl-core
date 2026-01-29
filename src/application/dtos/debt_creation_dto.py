@@ -8,11 +8,12 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+
 @dataclass
 class DebtCreationDTO:
     """
     Dữ liệu tạo công nợ từ nghiệp vụ.
-    
+
     Attributes:
         party_id (str): Mã đối tượng (KH/NCC).
         party_name (str): Tên đối tượng.
@@ -23,6 +24,7 @@ class DebtCreationDTO:
         due_date (date): Hạn thanh toán.
         currency (str): Loại tiền tệ (mặc định VND).
     """
+
     party_id: str
     party_name: str
     party_tax_code: str
