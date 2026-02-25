@@ -1,9 +1,9 @@
+namespace AIErp.Infrastructure;
+
 using AIErp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
-namespace AIErp.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -11,18 +11,11 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Register PostgreSQL DbContext
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(
-                connectionString,
-                npgsqlOptions =>
-                {
-                    npgsqlOptions.CommandTimeout(30);
-                    npgsqlOptions.EnableRetryOnFailure(3);
-                }));
+            options.UseSqlite(connectionString));
 
         return services;
     }
@@ -33,13 +26,7 @@ public static class DependencyInjection
         where TContext : DbContext
     {
         services.AddDbContext<TContext>(options =>
-            options.UseNpgsql(
-                connectionString,
-                npgsqlOptions =>
-                {
-                    npgsqlOptions.CommandTimeout(30);
-                    npgsqlOptions.EnableRetryOnFailure(3);
-                }));
+            options.UseSqlite(connectionString));
 
         return services;
     }

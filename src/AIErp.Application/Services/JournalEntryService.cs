@@ -75,9 +75,20 @@ public class JournalEntryService(AppDbContext dbContext) : IJournalEntryService
             throw new BusinessException(BusinessErrors.ValidationError, "Entry must have at least 2 lines with valid amounts");
         }
 
-        // Save to database
-        await _dbContext.JournalEntries.AddAsync(entry, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // Save to database with Transaction
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _dbContext.JournalEntries.AddAsync(entry, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
 
         return MapToResultDto(entry);
     }
@@ -93,20 +104,29 @@ public class JournalEntryService(AppDbContext dbContext) : IJournalEntryService
 
     public async Task<JournalEntryResultDto> PostAsync(Guid id, string postedBy, CancellationToken cancellationToken = default)
     {
-        var entry = await _dbContext.JournalEntries
-            .Include(e => e.Items)
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
-            ?? throw new BusinessException(BusinessErrors.ValidationError, "Journal entry not found");
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var entry = await _dbContext.JournalEntries
+                .Include(e => e.Items)
+                .FirstOrDefaultAsync(e => e.Id == id, cancellationToken)
+                ?? throw new BusinessException(BusinessErrors.ValidationError, "Journal entry not found");
 
-        // Check period is still open
-        var isPeriodOpen = await _dbContext.FiscalPeriods
-            .AnyAsync(p => p.Id == entry.FiscalPeriodId && p.IsOpen, cancellationToken);
+            var isPeriodOpen = await _dbContext.FiscalPeriods
+                .AnyAsync(p => p.Id == entry.FiscalPeriodId && p.IsOpen, cancellationToken);
 
-        entry.Post(postedBy, _ => isPeriodOpen);
+            entry.Post(postedBy, _ => isPeriodOpen);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
-        return MapToResultDto(entry);
+            return MapToResultDto(entry);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<JournalEntryResultDto> VoidAsync(Guid id, string voidedBy, CancellationToken cancellationToken = default)

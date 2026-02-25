@@ -3,12 +3,22 @@ using AIErp.Application.DTOs;
 using AIErp.Application.Exceptions;
 using AIErp.Application.Interfaces;
 using AIErp.Infrastructure;
+using AIErp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Configure JSON serializer for Enums as String
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.PropertyNamingPolicy = null; // Keep PascalCase
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -22,6 +32,42 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+// Ensure database is created and migrated
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AIErp.Infrastructure.Persistence.AppDbContext>();
+    try
+    {
+        dbContext.Database.EnsureCreated();
+        Console.WriteLine("Database ensured created successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error creating database: {ex.Message}");
+    }
+}
+
+// Global Exception Handler
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        
+        await context.Response.WriteAsJsonAsync(new
+        {
+            success = false,
+            error = new
+            {
+                code = "INTERNAL_ERROR",
+                message = "An unexpected error occurred"
+            },
+            timestamp = DateTime.UtcNow.ToString("o")
+        });
+    });
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
