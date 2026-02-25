@@ -19,6 +19,9 @@ public class Account
     public string CreatedBy { get; private set; } = string.Empty;
     public DateTime LastModifiedAt { get; private set; }
     public string LastModifiedBy { get; private set; } = string.Empty;
+    public Guid RowVersion { get; private set; } = Guid.NewGuid();
+
+    public void RegenerateRowVersion() => RowVersion = Guid.NewGuid();
 
     public Account? Parent { get; private set; }
     public ICollection<Account> Children { get; private set; } = new List<Account>();
@@ -94,6 +97,12 @@ public class Account
         IsActive = true;
         LastModifiedAt = DateTime.UtcNow;
         LastModifiedBy = modifiedBy;
+    }
+
+    public void Delete()
+    {
+        if (IsSystem)
+            throw new InvalidOperationException($"Không thể xóa tài khoản hệ thống {Code} ({Name}).");
     }
 
     public bool IsLeaf => !IsDetail && !Children.Any();

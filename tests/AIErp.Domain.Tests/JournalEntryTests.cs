@@ -110,7 +110,7 @@ public class JournalEntryTests
         var act = () => entry.Post(_testUser, periodId => true);
         
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*not balanced*");
+            .WithMessage("*không cân bằng*");
     }
 
     [Fact]

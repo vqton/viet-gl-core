@@ -11,6 +11,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Partner> Partners => Set<Partner>();
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
 
+    public override int SaveChanges()
+    {
+        UpdateRowVersions();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        UpdateRowVersions();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void UpdateRowVersions()
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Modified);
+
+        foreach (var entry in entries)
+        {
+            if (entry.Entity is Account account)
+                account.RegenerateRowVersion();
+            else if (entry.Entity is Partner partner)
+                partner.RegenerateRowVersion();
+            else if (entry.Entity is JournalEntry journalEntry)
+                journalEntry.RegenerateRowVersion();
+            else if (entry.Entity is FiscalPeriod fiscalPeriod)
+                fiscalPeriod.RegenerateRowVersion();
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -31,6 +61,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Audit fields
             entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(50);
             entity.Property(e => e.LastModifiedBy).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RowVersion).IsRequired();
+            
+            // Optimistic concurrency
+            entity.Property(e => e.RowVersion).IsRowVersion();
             
             // Self-referencing for hierarchy
             entity.HasOne(e => e.Parent)
@@ -60,6 +94,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.LastModifiedBy).IsRequired().HasMaxLength(50);
             entity.Property(e => e.PostedBy).HasMaxLength(50);
             entity.Property(e => e.VoidedBy).HasMaxLength(50);
+            entity.Property(e => e.RowVersion).IsRequired();
+            
+            // Optimistic concurrency
+            entity.Property(e => e.RowVersion).IsRowVersion();
             
             // Relationships
             entity.HasOne(e => e.FiscalPeriod)
@@ -127,9 +165,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Audit fields
             entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(50);
             entity.Property(e => e.LastModifiedBy).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RowVersion).IsRequired();
+            
+            // Optimistic concurrency
+            entity.Property(e => e.RowVersion).IsRowVersion();
             
             entity.HasIndex(e => e.Code).IsUnique();
-            entity.HasIndex(e => e.Type);
         });
 
         // FiscalPeriod configuration
@@ -144,10 +185,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.IsOpen).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsAdjustmentPeriod).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.Description).HasMaxLength(200);
-            
+             
             // Audit fields
             entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(50);
             entity.Property(e => e.LastModifiedBy).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RowVersion).IsRequired();
+            
+            // Optimistic concurrency
+            entity.Property(e => e.RowVersion).IsRowVersion();
             
             entity.HasIndex(e => new { e.Year, e.Period }).IsUnique();
             entity.HasIndex(e => e.IsOpen);

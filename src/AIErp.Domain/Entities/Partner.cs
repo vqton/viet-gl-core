@@ -19,6 +19,9 @@ public class Partner
     public string CreatedBy { get; private set; } = string.Empty;
     public DateTime LastModifiedAt { get; private set; }
     public string LastModifiedBy { get; private set; } = string.Empty;
+    public Guid RowVersion { get; private set; } = Guid.NewGuid();
+
+    public void RegenerateRowVersion() => RowVersion = Guid.NewGuid();
 
     private Partner() { }
 

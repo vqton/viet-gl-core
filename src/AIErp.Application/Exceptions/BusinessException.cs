@@ -19,4 +19,5 @@ public static class BusinessErrors
     public const string UnknownAccount = "UNKNOWN_ACCOUNT";
     public const string PartnerRequired = "PARTNER_REQUIRED";
     public const string ValidationError = "VALIDATION_ERROR";
+    public const string NotFound = "NOT_FOUND";
 }

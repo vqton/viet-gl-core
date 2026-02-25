@@ -184,7 +184,7 @@ public class JournalEntryTests
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*not balanced*");
+            .WithMessage("*không cân bằng*");
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class JournalEntryTests
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*non-draft*");
+            .WithMessage("*đang ở trạng thái nháp*");
     }
 
     [Fact]
@@ -299,7 +299,7 @@ public class JournalEntryTests
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*draft*");
+            .WithMessage("*đang ở trạng thái nháp*");
     }
 
     [Fact]
@@ -314,7 +314,7 @@ public class JournalEntryTests
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*draft*");
+            .WithMessage("*đang ở trạng thái nháp*");
     }
 
     [Fact]
@@ -348,7 +348,7 @@ public class JournalEntryTests
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*not open*");
+            .WithMessage("*đã đóng*");
     }
 
     #endregion

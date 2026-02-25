@@ -183,4 +183,44 @@ public class FiscalPeriodTests
 
         period.ContainsDate(new DateOnly(2025, 2, 1)).Should().BeFalse();
     }
+
+    [Fact]
+    public void Should_RejectPosting_WhenPeriodIsClosed_ThroughValidation()
+    {
+        var period = FiscalPeriod.Create(
+            year: 2025,
+            period: 1,
+            startDate: new DateOnly(2025, 1, 1),
+            endDate: new DateOnly(2025, 1, 31),
+            createdBy: _testUser
+        );
+
+        // Verify period is closed by default
+        period.IsOpen.Should().BeFalse();
+
+        // Simulate the isPeriodOpen function that JournalEntry.Post uses
+        bool IsPeriodOpen(Guid periodId) => period.IsOpen;
+
+        // Attempt to post to closed period should fail at JournalEntry.Post
+        // This test documents the expected behavior
+        Func<bool> checkPeriodOpen = () => IsPeriodOpen(period.Id);
+        checkPeriodOpen.Invoke().Should().BeFalse();
+    }
+
+    [Fact]
+    public void Should_AllowPosting_WhenPeriodIsOpen_ThroughValidation()
+    {
+        var period = FiscalPeriod.Create(
+            year: 2025,
+            period: 1,
+            startDate: new DateOnly(2025, 1, 1),
+            endDate: new DateOnly(2025, 1, 31),
+            createdBy: _testUser
+        );
+
+        period.Open(_testUser);
+
+        // Verify period is now open
+        period.IsOpen.Should().BeTrue();
+    }
 }

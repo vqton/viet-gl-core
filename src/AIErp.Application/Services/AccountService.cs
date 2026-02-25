@@ -28,6 +28,14 @@ public class AccountService(AppDbContext dbContext) : IAccountService
         return account == null ? null : MapToDto(account);
     }
 
+    public async Task<AccountDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var account = await _dbContext.Accounts
+            .FirstOrDefaultAsync(a => a.Code == code.Trim(), cancellationToken);
+
+        return account == null ? null : MapToDto(account);
+    }
+
     public async Task<IEnumerable<AccountTreeDto>> GetFullTreeAsync(CancellationToken cancellationToken = default)
     {
         var allAccounts = await _dbContext.Accounts
@@ -115,6 +123,44 @@ public class AccountService(AppDbContext dbContext) : IAccountService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapToDto(account);
+    }
+
+    public async Task<AccountDto> UpdateAsync(Guid id, UpdateAccountDto dto, string modifiedBy, CancellationToken cancellationToken = default)
+    {
+        var account = await _dbContext.Accounts
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+        if (account == null)
+            throw new BusinessException(BusinessErrors.NotFound, "Account not found");
+
+        account.Update(dto.Name, dto.Description, modifiedBy);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(account);
+    }
+
+    public async Task DeactivateAsync(Guid id, string modifiedBy, CancellationToken cancellationToken = default)
+    {
+        var account = await _dbContext.Accounts
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+        if (account == null)
+            throw new BusinessException(BusinessErrors.NotFound, "Account not found");
+
+        account.Deactivate(modifiedBy);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ActivateAsync(Guid id, string modifiedBy, CancellationToken cancellationToken = default)
+    {
+        var account = await _dbContext.Accounts
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+        if (account == null)
+            throw new BusinessException(BusinessErrors.NotFound, "Account not found");
+
+        account.Activate(modifiedBy);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static AccountDto MapToDto(Account account)

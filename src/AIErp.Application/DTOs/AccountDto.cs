@@ -30,3 +30,9 @@ public class CreateAccountDto
     public Guid? ParentId { get; set; }
     public string? Description { get; set; }
 }
+
+public class UpdateAccountDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+}

@@ -5,6 +5,7 @@ using AIErp.Application.Interfaces;
 using AIErp.Infrastructure;
 using AIErp.Infrastructure.Persistence;
 using AIErp.Infrastructure.SeedData;
+using AIErp.WebAPI.Filters;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -14,7 +15,10 @@ using Swashbuckle.AspNetCore.SwaggerUI;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<GlobalExceptionFilter>();
+})
     .AddJsonOptions(options =>
     {
         // Configure JSON serializer for Enums as String

@@ -73,7 +73,7 @@ public class AccountTests
 
         var act = () => systemAccount.Update("New Name", null, _testUser);
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Cannot modify system account*");
+            .WithMessage("*Không thể sửa tài khoản hệ thống*");
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class AccountTests
 
         var act = () => systemAccount.Deactivate(_testUser);
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Cannot deactivate system account*");
+            .WithMessage("*Không thể vô hiệu hóa tài khoản hệ thống*");
     }
 
     [Fact]
@@ -109,11 +109,9 @@ public class AccountTests
             isSystem: true
         );
 
-        systemAccount.Deactivate(_testUser);
-
         var act = () => systemAccount.Activate(_testUser);
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Cannot activate system account*");
+            .WithMessage("*Không thể kích hoạt tài khoản hệ thống*");
     }
 
     [Fact]
@@ -121,7 +119,7 @@ public class AccountTests
     {
         var act = () => Account.ValidateCode("12345678901"); // 11 digits
         act.Should().Throw<ArgumentException>()
-            .WithMessage("*must be between 3 and 10*");
+            .WithMessage("*phải từ 3 đến 10*");
     }
 
     [Fact]
@@ -129,7 +127,7 @@ public class AccountTests
     {
         var act = () => Account.ValidateCode("12A");
         act.Should().Throw<ArgumentException>()
-            .WithMessage("*must contain only digits*");
+            .WithMessage("*chỉ được phép chứa chữ số*");
     }
 
     [Fact]
@@ -137,5 +135,75 @@ public class AccountTests
     {
         var act = () => Account.ValidateCode("1111");
         act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Should_ThrowException_WhenDeletingSystemAccount()
+    {
+        var systemAccount = Account.Create(
+            "1111",
+            "Tiền Việt Nam",
+            AccountType.Asset,
+            NormalBalance.Debit,
+            isDetail: true,
+            parentId: Guid.NewGuid(),
+            createdBy: _testUser,
+            isSystem: true
+        );
+
+        var act = () => systemAccount.Delete();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Không thể xóa tài khoản hệ thống*");
+    }
+
+    [Fact]
+    public void Should_AllowDelete_WhenAccountIsNotSystem()
+    {
+        var account = Account.Create(
+            "1112",
+            "Tiền Việt Nam",
+            AccountType.Asset,
+            NormalBalance.Debit,
+            isDetail: true,
+            parentId: Guid.NewGuid(),
+            createdBy: _testUser,
+            isSystem: false
+        );
+
+        var act = () => account.Delete();
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Should_ReturnFalseForCanPost_WhenAccountIsParent()
+    {
+        var parentAccount = Account.Create(
+            "111",
+            "Tiền",
+            AccountType.Asset,
+            NormalBalance.Debit,
+            isDetail: false,
+            parentId: null,
+            createdBy: _testUser
+        );
+
+        parentAccount.CanPost().Should().BeFalse();
+    }
+
+    [Fact]
+    public void Should_ReturnTrueForCanPost_WhenAccountIsLeafDetail()
+    {
+        var parentId = Guid.NewGuid();
+        var childAccount = Account.Create(
+            "1111",
+            "Tiền Việt Nam",
+            AccountType.Asset,
+            NormalBalance.Debit,
+            isDetail: true,
+            parentId: parentId,
+            createdBy: _testUser
+        );
+
+        childAccount.CanPost().Should().BeTrue();
     }
 }

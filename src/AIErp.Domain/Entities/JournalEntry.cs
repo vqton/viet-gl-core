@@ -26,6 +26,9 @@ public class JournalEntry
     public string CreatedBy { get; private set; } = string.Empty;
     public DateTime LastModifiedAt { get; private set; }
     public string LastModifiedBy { get; private set; } = string.Empty;
+    public Guid RowVersion { get; private set; } = Guid.NewGuid();
+
+    public void RegenerateRowVersion() => RowVersion = Guid.NewGuid();
 
     public FiscalPeriod? FiscalPeriod { get; private set; }
     public ICollection<JournalItem> Items { get; private set; } = new List<JournalItem>();
@@ -156,7 +159,7 @@ public class JournalEntry
     public void UpdateDescription(string description, string modifiedBy)
     {
         if (Status != VoucherStatus.Draft)
-            throw new InvalidOperationException("Only draft entries can be modified");
+            throw new InvalidOperationException("Chỉ được sửa chứng từ đang ở trạng thái nháp");
 
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("Description is required", nameof(description));
