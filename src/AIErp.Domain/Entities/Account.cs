@@ -37,9 +37,9 @@ public class Account
         bool isSystem = false)
     {
         if (string.IsNullOrWhiteSpace(code))
-            throw new ArgumentException("Code is required", nameof(code));
+            throw new ArgumentException("Mã tài khoản không được để trống", nameof(code));
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required", nameof(name));
+            throw new ArgumentException("Tên tài khoản không được để trống", nameof(name));
 
         var account = new Account
         {
@@ -65,10 +65,10 @@ public class Account
     public void Update(string name, string? description, string modifiedBy)
     {
         if (IsSystem)
-            throw new InvalidOperationException($"Cannot modify system account {Code} ({Name}).");
+            throw new InvalidOperationException($"Không thể sửa tài khoản hệ thống {Code} ({Name}).");
 
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required", nameof(name));
+            throw new ArgumentException("Tên tài khoản không được để trống", nameof(name));
 
         Name = name.Trim();
         Description = description?.Trim();
@@ -79,7 +79,7 @@ public class Account
     public void Deactivate(string modifiedBy)
     {
         if (IsSystem)
-            throw new InvalidOperationException($"Cannot deactivate system account {Code} ({Name}).");
+            throw new InvalidOperationException($"Không thể vô hiệu hóa tài khoản hệ thống {Code} ({Name}).");
 
         IsActive = false;
         LastModifiedAt = DateTime.UtcNow;
@@ -89,7 +89,7 @@ public class Account
     public void Activate(string modifiedBy)
     {
         if (IsSystem)
-            throw new InvalidOperationException($"Cannot activate system account {Code} ({Name}).");
+            throw new InvalidOperationException($"Không thể kích hoạt tài khoản hệ thống {Code} ({Name}).");
 
         IsActive = true;
         LastModifiedAt = DateTime.UtcNow;
@@ -110,20 +110,20 @@ public class Account
     public void ValidateForPosting()
     {
         if (!CanPost())
-            throw new InvalidOperationException($"Account {Code} ({Name}) is a parent account and cannot be posted to directly.");
+            throw new InvalidOperationException($"Tài khoản tổng hợp {Code} ({Name}) không được phép hạch toán trực tiếp.");
     }
 
     public static void ValidateCode(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
-            throw new ArgumentException("Account code is required", nameof(code));
+            throw new ArgumentException("Mã tài khoản không được để trống", nameof(code));
 
         code = code.Trim();
 
         if (code.Length < 3 || code.Length > 10)
-            throw new ArgumentException("Account code must be between 3 and 10 characters", nameof(code));
+            throw new ArgumentException("Mã tài khoản phải từ 3 đến 10 ký tự", nameof(code));
 
         if (!code.All(c => char.IsDigit(c)))
-            throw new ArgumentException("Account code must contain only digits", nameof(code));
+            throw new ArgumentException("Mã tài khoản chỉ được phép chứa chữ số", nameof(code));
     }
 }

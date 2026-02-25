@@ -34,9 +34,9 @@ public class Partner
         bool isSystem = false)
     {
         if (string.IsNullOrWhiteSpace(code))
-            throw new ArgumentException("Code is required", nameof(code));
+            throw new ArgumentException("Mã đối tượng không được để trống", nameof(code));
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required", nameof(name));
+            throw new ArgumentException("Tên đối tượng không được để trống", nameof(name));
 
         var partner = new Partner
         {
@@ -69,10 +69,10 @@ public class Partner
         string? address = null)
     {
         if (IsSystem)
-            throw new InvalidOperationException($"Cannot modify system partner {Code} ({Name}).");
+            throw new InvalidOperationException($"Không thể sửa đối tượng hệ thống {Code} ({Name}).");
 
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name is required", nameof(name));
+            throw new ArgumentException("Tên đối tượng không được để trống", nameof(name));
 
         Name = name.Trim();
         Type = type;
@@ -87,7 +87,7 @@ public class Partner
     public void Deactivate(string modifiedBy)
     {
         if (IsSystem)
-            throw new InvalidOperationException($"Cannot deactivate system partner {Code} ({Name}).");
+            throw new InvalidOperationException($"Không thể vô hiệu hóa đối tượng hệ thống {Code} ({Name}).");
 
         IsActive = false;
         LastModifiedAt = DateTime.UtcNow;
@@ -97,7 +97,7 @@ public class Partner
     public void Activate(string modifiedBy)
     {
         if (IsSystem)
-            throw new InvalidOperationException($"Cannot activate system partner {Code} ({Name}).");
+            throw new InvalidOperationException($"Không thể kích hoạt đối tượng hệ thống {Code} ({Name}).");
 
         IsActive = true;
         LastModifiedAt = DateTime.UtcNow;

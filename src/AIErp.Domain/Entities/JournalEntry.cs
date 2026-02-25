@@ -42,7 +42,7 @@ public class JournalEntry
         string? entryNumber = null)
     {
         if (string.IsNullOrWhiteSpace(description))
-            throw new ArgumentException("Description is required", nameof(description));
+            throw new ArgumentException("Diễn giải không được để trống", nameof(description));
 
         var entry = new JournalEntry
         {
@@ -68,7 +68,7 @@ public class JournalEntry
     public void AddItem(JournalItem item)
     {
         if (Status != VoucherStatus.Draft)
-            throw new InvalidOperationException("Cannot add items to a non-draft entry");
+            throw new InvalidOperationException("Chỉ được thêm dòng khi chứng từ đang ở trạng thái nháp");
 
         item.SetJournalEntryId(Id);
         Items.Add(item);
@@ -78,7 +78,7 @@ public class JournalEntry
     public void RemoveItem(Guid itemId)
     {
         if (Status != VoucherStatus.Draft)
-            throw new InvalidOperationException("Cannot remove items from a non-draft entry");
+            throw new InvalidOperationException("Chỉ được xóa dòng khi chứng từ đang ở trạng thái nháp");
 
         var item = Items.FirstOrDefault(i => i.Id == itemId);
         if (item != null)
@@ -107,16 +107,16 @@ public class JournalEntry
     public void Post(string postedBy, Func<Guid, bool> isPeriodOpen, Func<Guid, Account?> getAccount = null!)
     {
         if (Status != VoucherStatus.Draft)
-            throw new InvalidOperationException("Only draft entries can be posted");
+            throw new InvalidOperationException("Chỉ được ghi sổ khi chứng từ đang ở trạng thái nháp");
 
         if (!CheckBalance())
-            throw new InvalidOperationException("Entry is not balanced - Debit must equal Credit");
+            throw new InvalidOperationException("Chứng từ không cân bằng - Tổng Nợ phải bằng Tổng Có");
 
         if (!HasValidLines())
-            throw new InvalidOperationException("Entry must have at least 2 lines with valid amounts");
+            throw new InvalidOperationException("Chứng từ phải có ít nhất 2 dòng với số tiền hợp lệ");
 
         if (!isPeriodOpen(FiscalPeriodId))
-            throw new InvalidOperationException("Fiscal period is not open for posting");
+            throw new InvalidOperationException("Kỳ kế toán đã đóng, không thể ghi sổ");
 
         if (getAccount != null)
         {

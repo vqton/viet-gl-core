@@ -54,6 +54,30 @@ public class AccountService(AppDbContext dbContext) : IAccountService
         return roots;
     }
 
+    public async Task<IEnumerable<AccountDto>> SearchAsync(string? searchTerm, bool? isDetail, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Accounts.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(a => 
+                a.Code.ToLower().Contains(term) || 
+                a.Name.ToLower().Contains(term));
+        }
+
+        if (isDetail.HasValue)
+        {
+            query = query.Where(a => a.IsDetail == isDetail.Value);
+        }
+
+        var accounts = await query
+            .OrderBy(a => a.Code)
+            .ToListAsync(cancellationToken);
+
+        return accounts.Select(MapToDto);
+    }
+
     public async Task<AccountDto> CreateAsync(CreateAccountDto dto, string createdBy, CancellationToken cancellationToken = default)
     {
         Account.ValidateCode(dto.Code);
