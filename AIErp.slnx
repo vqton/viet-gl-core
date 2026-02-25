@@ -5,4 +5,7 @@
     <Project Path="src/AIErp.Infrastructure/AIErp.Infrastructure.csproj" />
     <Project Path="src/AIErp.WebAPI/AIErp.WebAPI.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIErp.Domain.Tests/AIErp.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
