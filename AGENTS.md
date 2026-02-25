@@ -1,122 +1,143 @@
-AGENTS.md
+# AGENTS.md
 
-Overview
+## Overview
 - This file provides guidance for agentic contributors working in this repository.
-- It covers build, lint, test commands, and code style guidelines to ensure consistent, maintainable work.
-- If there are Cursor rules (in .cursor/rules/ or .cursorrules) or Copilot rules (in .github/copilot-instructions.md), include them here.
+- It covers build, lint, test commands, code style guidelines, and project-specific rules.
+- Project: AIErp - In-house ERP Core (Accounting) for SME
+- Stack: .NET 9, C# 13, Clean Lite Architecture (Domain, Application, Infrastructure)
+- Compliance: Circular 99/2025/TT-BTC (Vietnam)
 
-1) Build / Lint / Test workflow
-Setup
-- Create a fresh Python environment to isolate dependencies.
-  - Unix-like: `python3 -m venv venv` then `source venv/bin/activate`.
-  - Windows: `python -m venv venv` then `.\\venv\\Scripts\\activate`.
-- Dependency installation:
-  - If a requirements.txt exists: `pip install -r requirements.txt`.
-  - Otherwise: install common tools manually: `pip install pytest flake8 mypy black isort`.
-- Ensure Python version compatibility (prefer Python 3.8+).
+## 1) Build / Lint / Test Workflow
 
-Commands to run
-- Build / install the package (if a setup is present):
-  - `pip install -e .`  # editable install
-- Run all tests:
-  - `pytest -q`
-- Run a single test:
-  - `pytest tests/path/to/file.py::TestClass::test_name -q`
-- Run tests with coverage (optional):
-  - `pytest --maxfail=1 --disable-warnings -q --cov=src --cov-report=term-missing`
-- Lint the codebase:
-  - `flake8`  # style + logical errors
-  - `isort . --check-only --diff`  # import sorting
-  - `black --check .`  # formatting
-- Type checks:
-  - `mypy src tests`  # or adjust path to your code
-- Run a combined quality sweep:
-  - `pytest -q && flake8 && isort . --check-only --diff && black --check . && mypy src tests`
+### Setup
+- Install .NET 9 SDK from https://dotnet.microsoft.com/download
+- Restore dependencies: `dotnet restore`
+- Build solution: `dotnet build`
 
-Single test examples
-- To run a focused test you can use:
-  - `pytest tests/test_example.py::TestFeature.test_case`.
-- Use -k for keyword selection: `pytest -k "featureA and not slow" -q`.
+### Commands to Run
+- Build: `dotnet build`
+- Run all tests: `dotnet test`
+- Run a single test: `dotnet test --filter "FullyQualifiedName~TestClassName.TestMethodName"`
+- Run tests with coverage: `dotnet test --collect:"XPlat Code Coverage"`
+- Clean build: `dotnet clean && dotnet build`
 
-2) Code style guidelines
-General
-- Follow a single, consistent style across the codebase to minimize churn.
-- Prefer explicit, readable code over clever tricks.
-- Keep dependencies pinned in requirements.txt or pyproject.toml to stable builds.
+### Single Test Examples
+- `dotnet test --filter "FullyQualifiedName~JournalEntryTests.CheckBalance"`
+- `dotnet test --filter "Name~Balance"` (partial match)
 
-3) Language and formatting rules
-Imports
-- Structure: standard library imports, blank line, third-party imports, blank line, local imports.
-- Avoid wildcard imports (from module import *).
-- Use absolute imports where possible; prefer package level imports.
-- Run isort to enforce ordering; rely on it in CI.
+## 2) Project Structure
 
-Formatting
-- Adopt Black as the canonical formatter. Use the default configuration (88 chars) unless project guidelines specify otherwise.
-- Do not format by hand; let Black handle formatting differences.
-- Keep lines reasonably short; wrap long strings with implicit concatenation or parentheses.
+```
+src/
+├── AIErp.Domain/        # Pure C#, No external libs (Clean Lite)
+│   ├── Entities/        # Account, JournalEntry, JournalItem, Partner, FiscalPeriod
+│   ├── Enums/            # VoucherStatus, AccountType, NormalBalance, PartnerType
+│   └── ValueObjects/    # Money
+├── AIErp.Application/   # Use Cases (Commands/Queries)
+└── AIErp.Infrastructure/# DB, Controllers
+```
 
-Typing
-- Turn on type hints where they add clarity; annotate public APIs.
-- Use `from __future__ import annotations` at the top of modules to enable postponed evaluation of annotations.
-- Import common typing helpers: `List`, `Dict`, `Optional`, `Tuple`, `Union`, `Protocol`, `TypedDict` as appropriate.
-- For functions that can raise specific exceptions, declare return types and exceptions as needed.
+## 3) Code Style Guidelines
 
-Naming conventions
-- Functions and variables: snake_case.
-- Classes: CamelCase.
-- Constants: ALL_CAPS.
-- Exceptions: end with `Error` or `Exception` (e.g., `ValidationError`).
-- Private/internal helpers: prefix with underscore.
+### General
+- Follow Clean Lite: Domain = Pure C#, Application = Services, Infrastructure = DB/IO
+- No logic in Controllers, no DB logic in Domain
+- Keep entities as POCOs (no [Key], [Required] attributes in Domain)
 
-Docstrings and comments
-- Public modules/classes/functions should have docstrings.
-- Docstrings should describe purpose, arguments, return values, and side effects.
-- Use a consistent style: Google-style or NumPy-style; pick one and apply project-wide.
-- Avoid obvious comments; prefer self-documenting code and targeted clarifications when necessary.
+### Naming Conventions
+- Classes/Interfaces: PascalCase (e.g., `JournalEntry`, `IVoucherRepository`)
+- Methods/Properties: PascalCase
+- Private fields: _camelCase (e.g., `_journalItems`)
+- Constants: PascalCase (e.g., `DefaultCurrency`)
+- Files: Match class name (e.g., `JournalEntry.cs`)
 
-Error handling
-- Do not swallow exceptions; catch only what you can handle meaningfully.
-- Avoid bare `except:`; catch specific exceptions.
-- Add context to error messages; include relevant values when possible.
-- When a library crosses boundary boundaries (public API), translate low-level errors into meaningful, typed exceptions.
+### Formatting
+- Use dotnet format: `dotnet format`
+- Braces on new line for classes/methods
+- One space after keywords (if, for, while)
+- Use expression-bodied members when appropriate
+- 120 char line length max
 
-Logging
-- Use module-level logger: `logger = logging.getLogger(__name__)`.
-- Log at appropriate levels: debug for verbose, info for normal progress, warning/error for issues.
-- Do not leak sensitive information in logs.
+### Typing
+- Use C# 13 features: primary constructors, collection expressions
+- Enable nullable reference types
+- Use `record` for immutable value objects
+- Avoid `var` for primitive types; use explicit types
 
-Tests
-- Tests live under `tests/` with file names like `test_*.py`.
-- Test classes should start with `Test` and contain test methods `test_*`.
-- Use fixtures for setup/teardown; prefer function-scoped fixtures unless sharing is needed.
-- Name tests descriptively; avoid generic names like `test_it_works` unless they truly describe behavior.
-- Parameterize tests where appropriate to cover multiple inputs.
-- Mock external systems carefully; restore state in teardown.
+### Imports
+- Group: System → Microsoft → Third-party → Project
+- Remove unused imports
+- Use global usings in `GlobalUsings.cs`
 
-CI and tooling
-- CI should run: install, lint, type-check, and tests on every push/PR.
-- Include caching or artifacts as appropriate for speed.
-- Fail early on lint/type/test failures to guide quick fixes.
+### Error Handling
+- Throw specific exceptions (ArgumentException, InvalidOperationException)
+- Never swallow exceptions silently
+- Use domain errors: ImbalanceDetectedError, FiscalPeriodClosedError, InvalidStatusTransitionError
 
-Cursor rules
-- Cursor rules (if present) should be respected when generating code or edits.
-- If there are no Cursor rules, note that explicitly and proceed with standard edits.
+### Logging
+- Use ILogger<T> from Microsoft.Extensions.Logging
+- Log at appropriate levels: LogInformation, LogWarning, LogError
 
-Copilot rules
-- Copilot instructions (if present) should be followed verbatim for safety and compliance.
-- If not present, proceed with caution and human-reviewed changes.
+### Documentation
+- XML doc comments for public APIs
+- Summary: one-line description
+- Params: describe parameters
+- Returns: describe return value
+- Example: `<summary>Creates a new journal entry.</summary>`
 
-Agent workflow tips
-- Make small, targeted edits; run tests locally when possible.
-- Prefer patching a single file at a time when introducing new features.
-- Include a short rationale in commit messages describing why the change was made.
-- When unsure, draft two or three minimal changes and run the relevant tests to confirm expectations.
+## 4) Domain Layer Rules
 
-Appendix: example commands
-- Activate env: `source venv/bin/activate` or `.
-venv\Scripts\activate`.
-- Install: `pip install -r requirements.txt`.
-- Run a single test: `pytest tests/test_module.py::TestCase.test_method -q`.
-- Lint: `flake8` and `black --check .`.
-- Type: `mypy src tests`.
+- Pure C# - no EF, no JSON, no external dependencies
+- Entities: Account, JournalEntry, JournalItem, Partner, FiscalPeriod
+- Enums: VoucherStatus (Draft=1, Posted=2, Void=3), AccountType, NormalBalance, PartnerType
+- Value Objects: Money (immutable, currency validation)
+- Validation inside entities (e.g., `JournalEntry.CheckBalance()`)
+
+## 5) Testing Guidelines
+
+- Tests live in `tests/` folder
+- Naming: `{EntityName}Tests.cs`
+- Use xUnit + Moq or FluentAssertions
+- Test patterns:
+  - Arrange: Create entity with factory methods
+  - Act: Call domain method
+  - Assert: Verify state changes or exceptions
+- Test invariants: balance check, status transitions, validation
+
+## 6) Git Workflow
+
+### Branching
+- `feature/description` - new features
+- `fix/description` - bug fixes
+- `docs/description` - documentation
+
+### Commit Messages `type
+- Format:(scope): description`
+- Examples:
+  - `feat(domain): add CheckBalance method to JournalEntry`
+  - `fix: correct off-by-one in balance calculation`
+  - `docs: update data dictionary with new fields`
+
+### Pull Requests
+- Keep PRs small and focused
+- Include tests for new functionality
+- Update documentation if needed
+
+## 7) Security
+
+- Never commit secrets, credentials, or keys
+- Use environment variables for sensitive config
+- Connection strings in appsettings.*.json should be placeholder
+
+## 8) Cursor / Copilot Rules
+
+- No Cursor rules present in .cursor/
+- No Copilot rules in .github/copilot-instructions.md
+- Follow standard Clean Architecture principles
+
+## 9) Notes
+
+- This is a living document - update as the project evolves
+- Refer to docs/01_DOMAIN_LOGIC.md for business rules
+- Refer to docs/02_LITE_ARCHITECTURE.md for architecture details
+- Refer to docs/03_DATA_DICTIONARY.md for database schema

@@ -1,0 +1,88 @@
+# .NET 9 GitIgnore
+
+## Build results
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+
+## Visual Studio / IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+## NuGet
+*.nupkg
+nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## MSTest / Testing
+[TestResults]
+*_TestResults/
+*.trx
+
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## Logs
+*.log
+logs/
+
+## Local environment
+.env
+.env.local
+.env.*.local
+appsettings.*.local.json
+
+## Secrets (DO NOT COMMIT)
+*.pfx
+*.key
+*.pem
+*.p12
+secrets.json
+credentials.json
+
+## Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+~*
+
+## Database
+*.db
+*.sqlite
+*.sqlite3
+.mdf
+*.ldf
+
+## Docker
+docker-compose.override.yml
+
+## AI / Copilot / Cursor
+.cursorrules
+.cursor/
+*.ai
+
+## Backup files
+*.bak
+*.backup
