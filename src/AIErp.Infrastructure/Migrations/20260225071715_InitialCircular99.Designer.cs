@@ -3,6 +3,7 @@ using System;
 using AIErp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AIErp.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260225071715_InitialCircular99")]
+    partial class InitialCircular99
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -46,9 +49,6 @@ namespace AIErp.Infrastructure.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<bool>("IsDetail")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsSystem")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("LastModifiedAt")

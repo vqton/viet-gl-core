@@ -4,8 +4,12 @@ using AIErp.Application.Exceptions;
 using AIErp.Application.Interfaces;
 using AIErp.Infrastructure;
 using AIErp.Infrastructure.Persistence;
+using AIErp.Infrastructure.SeedData;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
+using Swashbuckle.AspNetCore.SwaggerUI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +45,23 @@ using (var scope = app.Services.CreateScope())
     {
         dbContext.Database.EnsureCreated();
         Console.WriteLine("Database ensured created successfully.");
+
+        // Seed data if empty
+        if (!await dbContext.Accounts.AnyAsync())
+        {
+            var accounts = IdentitySeed.GetChartOfAccounts();
+            await dbContext.Accounts.AddRangeAsync(accounts);
+            await dbContext.SaveChangesAsync();
+            Console.WriteLine($"Seeded {accounts.Count} accounts.");
+        }
+
+        if (!await dbContext.FiscalPeriods.AnyAsync())
+        {
+            var periods = IdentitySeed.GetFiscalPeriods();
+            await dbContext.FiscalPeriods.AddRangeAsync(periods);
+            await dbContext.SaveChangesAsync();
+            Console.WriteLine($"Seeded {periods.Count} fiscal periods.");
+        }
     }
     catch (Exception ex)
     {

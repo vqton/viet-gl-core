@@ -104,7 +104,7 @@ public class JournalEntry
         return Items.Count >= 2 && Items.All(i => i.DebitAmount > 0 || i.CreditAmount > 0);
     }
 
-    public void Post(string postedBy, Func<Guid, bool> isPeriodOpen)
+    public void Post(string postedBy, Func<Guid, bool> isPeriodOpen, Func<Guid, Account?> getAccount = null!)
     {
         if (Status != VoucherStatus.Draft)
             throw new InvalidOperationException("Only draft entries can be posted");
@@ -117,6 +117,19 @@ public class JournalEntry
 
         if (!isPeriodOpen(FiscalPeriodId))
             throw new InvalidOperationException("Fiscal period is not open for posting");
+
+        if (getAccount != null)
+        {
+            foreach (var item in Items)
+            {
+                var account = getAccount(item.AccountId);
+                if (account == null)
+                    throw new InvalidOperationException($"Account with ID {item.AccountId} not found");
+                
+                if (!account.IsDetail)
+                    throw new InvalidOperationException($"Cannot post to parent account {account.Code} ({account.Name}). Only leaf accounts are allowed per Circular 99/2025.");
+            }
+        }
 
         Status = VoucherStatus.Posted;
         PostedAt = DateTime.UtcNow;

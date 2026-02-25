@@ -115,7 +115,12 @@ public class JournalEntryService(AppDbContext dbContext) : IJournalEntryService
             var isPeriodOpen = await _dbContext.FiscalPeriods
                 .AnyAsync(p => p.Id == entry.FiscalPeriodId && p.IsOpen, cancellationToken);
 
-            entry.Post(postedBy, _ => isPeriodOpen);
+            var accounts = await _dbContext.Accounts.ToDictionaryAsync(a => a.Id, cancellationToken);
+
+            entry.Post(
+                postedBy, 
+                _ => isPeriodOpen,
+                accountId => accounts.GetValueOrDefault(accountId));
 
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

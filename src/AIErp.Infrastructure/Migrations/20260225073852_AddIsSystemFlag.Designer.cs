@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AIErp.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260225063552_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260225073852_AddIsSystemFlag")]
+    partial class AddIsSystemFlag
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -49,6 +49,9 @@ namespace AIErp.Infrastructure.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<bool>("IsDetail")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSystem")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("LastModifiedAt")

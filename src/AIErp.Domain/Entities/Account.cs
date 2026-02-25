@@ -12,6 +12,7 @@ public class Account
     public bool IsDetail { get; private set; }
     public Guid? ParentId { get; private set; }
     public bool IsActive { get; private set; }
+    public bool IsSystem { get; private set; }
     public string? Description { get; private set; }
     
     public DateTime CreatedAt { get; private set; }
@@ -32,7 +33,8 @@ public class Account
         bool isDetail,
         Guid? parentId,
         string createdBy,
-        string? description = null)
+        string? description = null,
+        bool isSystem = false)
     {
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required", nameof(code));
@@ -49,6 +51,7 @@ public class Account
             IsDetail = isDetail,
             ParentId = parentId,
             IsActive = true,
+            IsSystem = isSystem,
             Description = description?.Trim(),
             CreatedAt = DateTime.UtcNow,
             CreatedBy = createdBy,
@@ -61,6 +64,9 @@ public class Account
 
     public void Update(string name, string? description, string modifiedBy)
     {
+        if (IsSystem)
+            throw new InvalidOperationException($"Cannot modify system account {Code} ({Name}).");
+
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name is required", nameof(name));
 
@@ -72,6 +78,9 @@ public class Account
 
     public void Deactivate(string modifiedBy)
     {
+        if (IsSystem)
+            throw new InvalidOperationException($"Cannot deactivate system account {Code} ({Name}).");
+
         IsActive = false;
         LastModifiedAt = DateTime.UtcNow;
         LastModifiedBy = modifiedBy;
@@ -79,8 +88,42 @@ public class Account
 
     public void Activate(string modifiedBy)
     {
+        if (IsSystem)
+            throw new InvalidOperationException($"Cannot activate system account {Code} ({Name}).");
+
         IsActive = true;
         LastModifiedAt = DateTime.UtcNow;
         LastModifiedBy = modifiedBy;
+    }
+
+    public bool IsLeaf => !IsDetail && !Children.Any();
+
+    public bool CanPost()
+    {
+        if (!IsActive)
+            return false;
+        if (!IsDetail)
+            return false;
+        return true;
+    }
+
+    public void ValidateForPosting()
+    {
+        if (!CanPost())
+            throw new InvalidOperationException($"Account {Code} ({Name}) is a parent account and cannot be posted to directly.");
+    }
+
+    public static void ValidateCode(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Account code is required", nameof(code));
+
+        code = code.Trim();
+
+        if (code.Length < 3 || code.Length > 10)
+            throw new ArgumentException("Account code must be between 3 and 10 characters", nameof(code));
+
+        if (!code.All(c => char.IsDigit(c)))
+            throw new ArgumentException("Account code must contain only digits", nameof(code));
     }
 }

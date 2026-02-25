@@ -1,5 +1,7 @@
 using AIErp.Domain.Entities;
+using AIErp.Domain.Enums;
 using FluentAssertions;
+using DomainEnums = AIErp.Domain.Enums;
 
 namespace AIErp.Domain.Tests;
 
@@ -129,5 +131,128 @@ public class JournalEntryTests
         
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Partner is required*");
+    }
+
+    [Fact]
+    public void Should_ThrowException_When_Posting_To_Parent_Account()
+    {
+        // Arrange: Create parent account (not detail)
+        var parentAccountId = Guid.NewGuid();
+        var parentAccount = Account.Create(
+            "111",
+            "Tiền",
+            AccountType.Asset,
+            Domain.Enums.NormalBalance.Debit,
+            isDetail: false, // Parent account
+            parentId: null,
+            createdBy: _testUser
+        );
+        
+        // Use reflection to set the Id since Create generates a new one
+        var parentAccountWithId = Account.Create(
+            "111",
+            "Tiền",
+            AccountType.Asset,
+            Domain.Enums.NormalBalance.Debit,
+            isDetail: false,
+            parentId: null,
+            createdBy: _testUser
+        );
+
+        var leafAccount = Account.Create(
+            "1111",
+            "Tiền Việt Nam",
+            AccountType.Asset,
+            Domain.Enums.NormalBalance.Debit,
+            isDetail: true,
+            parentId: parentAccountWithId.Id,
+            createdBy: _testUser
+        );
+
+        var entry = JournalEntry.Create(
+            DateOnly.FromDateTime(DateTime.Today),
+            _fiscalPeriodId,
+            "VND",
+            "Test Post to Parent Account",
+            _testUser
+        );
+
+        // Add line with parent account (not leaf)
+        entry.AddItem(JournalItem.Create(
+            parentAccountWithId.Id,
+            1000m,
+            0,
+            _testUser
+        ));
+        entry.AddItem(JournalItem.Create(
+            leafAccount.Id,
+            0,
+            1000m,
+            _testUser
+        ));
+
+        // Act & Assert: Posting should throw because parent account is used
+        var act = () => entry.Post(
+            _testUser, 
+            periodId => true,
+            accountId => accountId == parentAccountWithId.Id ? parentAccountWithId : leafAccount);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*parent account*");
+    }
+
+    [Fact]
+    public void Should_Succeed_When_Posting_To_Leaf_Account_Only()
+    {
+        // Arrange: Create leaf accounts only
+        var leafAccount1 = Account.Create(
+            "1111",
+            "Tiền Việt Nam",
+            AccountType.Asset,
+            Domain.Enums.NormalBalance.Debit,
+            isDetail: true,
+            parentId: null,
+            createdBy: _testUser
+        );
+
+        var leafAccount2 = Account.Create(
+            "1311",
+            "Phải thu khách hàng",
+            AccountType.Asset,
+            Domain.Enums.NormalBalance.Debit,
+            isDetail: true,
+            parentId: null,
+            createdBy: _testUser
+        );
+
+        var entry = JournalEntry.Create(
+            DateOnly.FromDateTime(DateTime.Today),
+            _fiscalPeriodId,
+            "VND",
+            "Test Post to Leaf Accounts",
+            _testUser
+        );
+
+        entry.AddItem(JournalItem.Create(
+            leafAccount1.Id,
+            1000m,
+            0,
+            _testUser
+        ));
+        entry.AddItem(JournalItem.Create(
+            leafAccount2.Id,
+            0,
+            1000m,
+            _testUser
+        ));
+
+        // Act & Assert: Posting should succeed with leaf accounts only
+        var act = () => entry.Post(
+            _testUser,
+            periodId => true,
+            accountId => accountId == leafAccount1.Id ? leafAccount1 : leafAccount2);
+
+        act.Should().NotThrow();
+        entry.Status.Should().Be(Domain.Enums.VoucherStatus.Posted);
     }
 }
