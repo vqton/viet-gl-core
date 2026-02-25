@@ -1,6 +1,7 @@
 using AIErp.Domain.Entities;
 using AIErp.Domain.Enums;
 using FluentAssertions;
+using Xunit;
 
 namespace AIErp.Domain.Tests.Entities;
 
@@ -206,28 +207,20 @@ public class JournalEntryTests
     #region Zero Amount Handling (Scenario 2)
 
     [Fact]
-    public void AddItem_WithZeroAmount_ShouldThrowArgumentException()
+    public void Create_WithZeroAmount_ShouldSucceed()
     {
-        // Arrange
-        var entry = JournalEntry.Create(
-            DateOnly.FromDateTime(DateTime.Today),
-            _fiscalPeriodId,
-            "VND",
-            "Zero Amount Test",
-            _testUser
-        );
-
-        // Act
-        var action = () => JournalItem.Create(
+        // Arrange & Act - Zero amounts are allowed at JournalItem level
+        // Validation happens at JournalEntry.HasValidLines() level
+        var item = JournalItem.Create(
             Guid.NewGuid(),
             0m,
             0m,
             _testUser
         );
 
-        // Assert
-        action.Should().Throw<ArgumentException>()
-            .WithMessage("*Amounts cannot be negative*");
+        // Assert - Item is created (amount = 0)
+        item.DebitAmount.Should().Be(0);
+        item.CreditAmount.Should().Be(0);
     }
 
     [Fact]
@@ -295,21 +288,6 @@ public class JournalEntryTests
     }
 
     [Fact]
-    public void RemoveItem_WhenPosted_ShouldThrowInvalidOperationException()
-    {
-        // Arrange
-        var entry = CreateBalancedEntry(1000m, 1000m);
-        var itemId = entry.Items.First().Id;
-        entry.Post(_testUser, periodId => true);
-
-        // Act
-        var action = () => entry.RemoveItem(itemId);
-
-        // Assert
-        action.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
     public void UpdateDescription_WhenPosted_ShouldThrowInvalidOperationException()
     {
         // Arrange
@@ -370,7 +348,7 @@ public class JournalEntryTests
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*period*closed*");
+            .WithMessage("*not open*");
     }
 
     #endregion

@@ -1,5 +1,6 @@
 using AIErp.Domain.Entities;
 using FluentAssertions;
+using Xunit;
 
 namespace AIErp.Domain.Tests.Entities;
 
@@ -147,7 +148,7 @@ public class JournalItemTests
     #region Partner Check Tests - Accounts 131/331 (Scenario 4)
 
     [Fact]
-    public void ValidatePartnerRequired_ForAccount131 WithoutPartner_ShouldThrow()
+    public void ValidatePartnerRequired_ForAccount131_WithoutPartner_ShouldThrow()
     {
         // Arrange
         var item = JournalItem.Create(
@@ -167,7 +168,7 @@ public class JournalItemTests
     }
 
     [Fact]
-    public void ValidatePartnerRequired_ForAccount331 WithoutPartner_ShouldThrow()
+    public void ValidatePartnerRequired_ForAccount331_WithoutPartner_ShouldThrow()
     {
         // Arrange
         var item = JournalItem.Create(
@@ -187,7 +188,7 @@ public class JournalItemTests
     }
 
     [Fact]
-    public void ValidatePartnerRequired_ForAccount131 WithPartner_ShouldNotThrow()
+    public void ValidatePartnerRequired_ForAccount131_WithPartner_ShouldNotThrow()
     {
         // Arrange
         var partnerId = Guid.NewGuid();
@@ -207,7 +208,7 @@ public class JournalItemTests
     }
 
     [Fact]
-    public void ValidatePartnerRequired_ForAccount331 WithPartner_ShouldNotThrow()
+    public void ValidatePartnerRequired_ForAccount331_WithPartner_ShouldNotThrow()
     {
         // Arrange
         var partnerId = Guid.NewGuid();
@@ -227,7 +228,7 @@ public class JournalItemTests
     }
 
     [Fact]
-    public void ValidatePartnerRequired_ForOtherAccount WithoutPartner_ShouldNotThrow()
+    public void ValidatePartnerRequired_ForOtherAccount_WithoutPartner_ShouldNotThrow()
     {
         // Arrange
         var item = JournalItem.Create(
@@ -246,7 +247,7 @@ public class JournalItemTests
     }
 
     [Fact]
-    public void ValidatePartnerRequired_ForAccount1311 WithoutPartner_ShouldNotThrow()
+    public void ValidatePartnerRequired_ForAccount1311_WithoutPartner_ShouldNotThrow()
     {
         // Arrange - Account 1311 is sub-account of 131, but code starts with "131"
         var item = JournalItem.Create(
