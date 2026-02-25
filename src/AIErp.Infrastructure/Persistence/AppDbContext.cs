@@ -122,6 +122,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.Email).HasMaxLength(100);
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IsSystem).IsRequired().HasDefaultValue(false);
             
             // Audit fields
             entity.Property(e => e.CreatedBy).IsRequired().HasMaxLength(50);

@@ -13,6 +13,7 @@ public class Partner
     public string? Email { get; private set; }
     public string? Address { get; private set; }
     public bool IsActive { get; private set; }
+    public bool IsSystem { get; private set; }
     
     public DateTime CreatedAt { get; private set; }
     public string CreatedBy { get; private set; } = string.Empty;
@@ -29,7 +30,8 @@ public class Partner
         string? taxCode = null,
         string? phone = null,
         string? email = null,
-        string? address = null)
+        string? address = null,
+        bool isSystem = false)
     {
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required", nameof(code));
@@ -47,6 +49,7 @@ public class Partner
             Email = email?.Trim(),
             Address = address?.Trim(),
             IsActive = true,
+            IsSystem = isSystem,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = createdBy,
             LastModifiedAt = DateTime.UtcNow,
@@ -65,6 +68,9 @@ public class Partner
         string? email = null,
         string? address = null)
     {
+        if (IsSystem)
+            throw new InvalidOperationException($"Cannot modify system partner {Code} ({Name}).");
+
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name is required", nameof(name));
 
@@ -80,6 +86,9 @@ public class Partner
 
     public void Deactivate(string modifiedBy)
     {
+        if (IsSystem)
+            throw new InvalidOperationException($"Cannot deactivate system partner {Code} ({Name}).");
+
         IsActive = false;
         LastModifiedAt = DateTime.UtcNow;
         LastModifiedBy = modifiedBy;
@@ -87,6 +96,9 @@ public class Partner
 
     public void Activate(string modifiedBy)
     {
+        if (IsSystem)
+            throw new InvalidOperationException($"Cannot activate system partner {Code} ({Name}).");
+
         IsActive = true;
         LastModifiedAt = DateTime.UtcNow;
         LastModifiedBy = modifiedBy;
