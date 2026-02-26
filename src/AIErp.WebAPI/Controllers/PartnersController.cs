@@ -23,7 +23,7 @@ public class PartnersController(IPartnerService service) : ControllerBase
     {
         var partner = await _service.GetByIdAsync(id, cancellationToken);
         if (partner == null)
-            return NotFound(ApiResponse.Error("NOT_FOUND", "Partner not found"));
+            return NotFound(ApiResponse.Error("NOT_FOUND", "Không tìm thấy đối tượng"));
 
         return Ok(ApiResponse.Success(partner));
     }
@@ -62,7 +62,7 @@ public class PartnersController(IPartnerService service) : ControllerBase
         try
         {
             await _service.DeleteAsync(id, "API_USER", cancellationToken);
-            return Ok(ApiResponse.Success(new { id, message = "Partner deactivated" }));
+            return Ok(ApiResponse.Success(new { id, message = "Đối tượng đã bị vô hiệu hóa" }));
         }
         catch (BusinessException ex)
         {

@@ -131,7 +131,7 @@ public class AccountService(AppDbContext dbContext) : IAccountService
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
         if (account == null)
-            throw new BusinessException(BusinessErrors.NotFound, "Account not found");
+            throw new BusinessException(BusinessErrors.NotFound, "Không tìm thấy tài khoản");
 
         account.Update(dto.Name, dto.Description, modifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -145,7 +145,7 @@ public class AccountService(AppDbContext dbContext) : IAccountService
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
         if (account == null)
-            throw new BusinessException(BusinessErrors.NotFound, "Account not found");
+            throw new BusinessException(BusinessErrors.NotFound, "Không tìm thấy tài khoản");
 
         account.Deactivate(modifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -157,7 +157,7 @@ public class AccountService(AppDbContext dbContext) : IAccountService
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
         if (account == null)
-            throw new BusinessException(BusinessErrors.NotFound, "Account not found");
+            throw new BusinessException(BusinessErrors.NotFound, "Không tìm thấy tài khoản");
 
         account.Activate(modifiedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);

@@ -30,7 +30,7 @@ public class FiscalPeriodsController(IFiscalPeriodService service) : ControllerB
     {
         var period = await _service.GetByIdAsync(id, cancellationToken);
         if (period == null)
-            return NotFound(ApiResponse.Error("NOT_FOUND", "Fiscal period not found"));
+            return NotFound(ApiResponse.Error("NOT_FOUND", "Không tìm thấy kỳ kế toán"));
 
         return Ok(ApiResponse.Success(period));
     }

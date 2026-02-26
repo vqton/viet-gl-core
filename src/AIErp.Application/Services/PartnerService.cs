@@ -57,7 +57,7 @@ public class PartnerService(AppDbContext dbContext) : IPartnerService
     {
         var partner = await _dbContext.Partners
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
-            ?? throw new BusinessException(BusinessErrors.ValidationError, "Partner not found");
+            ?? throw new BusinessException(BusinessErrors.ValidationError, "Không tìm thấy đối tượng");
 
         partner.Update(
             name: dto.Name,
@@ -78,7 +78,7 @@ public class PartnerService(AppDbContext dbContext) : IPartnerService
     {
         var partner = await _dbContext.Partners
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
-            ?? throw new BusinessException(BusinessErrors.ValidationError, "Partner not found");
+            ?? throw new BusinessException(BusinessErrors.ValidationError, "Không tìm thấy đối tượng");
 
         partner.Deactivate(deletedBy);
         await _dbContext.SaveChangesAsync(cancellationToken);

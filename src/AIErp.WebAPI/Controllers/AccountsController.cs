@@ -40,7 +40,7 @@ public class AccountsController(IAccountService service) : ControllerBase
     {
         var account = await _service.GetByCodeAsync(code, cancellationToken);
         if (account == null)
-            return NotFound(ApiResponse.Error("NOT_FOUND", "Account not found"));
+            return NotFound(ApiResponse.Error("NOT_FOUND", "Không tìm thấy tài khoản"));
 
         return Ok(ApiResponse.Success(account));
     }
@@ -50,7 +50,7 @@ public class AccountsController(IAccountService service) : ControllerBase
     {
         var account = await _service.GetByIdAsync(id, cancellationToken);
         if (account == null)
-            return NotFound(ApiResponse.Error("NOT_FOUND", "Account not found"));
+            return NotFound(ApiResponse.Error("NOT_FOUND", "Không tìm thấy tài khoản"));
 
         return Ok(ApiResponse.Success(account));
     }
@@ -89,7 +89,7 @@ public class AccountsController(IAccountService service) : ControllerBase
         try
         {
             await _service.DeactivateAsync(id, "API_USER", cancellationToken);
-            return Ok(ApiResponse.Success(new { id, message = "Account deactivated" }));
+            return Ok(ApiResponse.Success(new { id, message = "Tài khoản đã bị vô hiệu hóa" }));
         }
         catch (BusinessException ex)
         {
@@ -103,7 +103,7 @@ public class AccountsController(IAccountService service) : ControllerBase
         try
         {
             await _service.ActivateAsync(id, "API_USER", cancellationToken);
-            return Ok(ApiResponse.Success(new { id, message = "Account activated" }));
+            return Ok(ApiResponse.Success(new { id, message = "Tài khoản đã được kích hoạt" }));
         }
         catch (BusinessException ex)
         {
