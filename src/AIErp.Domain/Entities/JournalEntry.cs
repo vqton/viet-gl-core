@@ -21,6 +21,11 @@ public class JournalEntry
     public DateTime? VoidedAt { get; private set; }
     public string? VoidedBy { get; private set; }
     public Guid? OriginalEntryId { get; private set; }
+
+    // Tax compliance fields per Circular 99/2025
+    public string? InvoiceNumber { get; private set; }
+    public DateOnly? InvoiceDate { get; private set; }
+    public decimal? TaxRate { get; private set; }
     
     public DateTime CreatedAt { get; private set; }
     public string CreatedBy { get; private set; } = string.Empty;
@@ -173,4 +178,18 @@ public class JournalEntry
     {
         return $"JE/{DateTime.UtcNow:yyyyMMdd}/{Guid.NewGuid().ToString()[..8].ToUpper()}";
     }
+
+    public void SetInvoiceInfo(string? invoiceNumber, DateOnly? invoiceDate, decimal? taxRate)
+    {
+        if (Status != VoucherStatus.Draft)
+            throw new InvalidOperationException("Chỉ được cập nhật thông tin hóa đơn khi chứng từ đang ở trạng thái nháp");
+
+        InvoiceNumber = invoiceNumber?.Trim();
+        InvoiceDate = invoiceDate;
+        TaxRate = taxRate;
+    }
+
+    public bool IsVoided => Status == VoucherStatus.Void;
+    public bool IsPosted => Status == VoucherStatus.Posted;
+    public bool IsDraft => Status == VoucherStatus.Draft;
 }

@@ -3,6 +3,7 @@ using AIErp.Application.Exceptions;
 using AIErp.Application.Interfaces;
 using AIErp.Domain.Entities;
 using AIErp.Domain.Enums;
+using AIErp.Domain.Services;
 using AIErp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -117,22 +118,8 @@ public class JournalEntryService(AppDbContext dbContext) : IJournalEntryService
 
             var accounts = await _dbContext.Accounts.ToDictionaryAsync(a => a.Id, cancellationToken);
 
-            // Validate partner required for 131/331 accounts
-            foreach (var item in entry.Items)
-            {
-                if (accounts.TryGetValue(item.AccountId, out var account))
-                {
-                    if (account.Code.StartsWith("131") || account.Code.StartsWith("331"))
-                    {
-                        if (item.PartnerId == null)
-                        {
-                            throw new BusinessException(
-                                BusinessErrors.ValidationError,
-                                $"Tài khoản {account.Code} ({account.Name}) yêu cầu phải có Đối tượng (Partner).");
-                        }
-                    }
-                }
-            }
+            // Validate account pairing and business rules per TT99/2025
+            AccountingValidationService.ValidateJournalEntry(entry, accounts);
 
             entry.Post(
                 postedBy, 
