@@ -25,7 +25,7 @@ public class GlobalExceptionFilter : IExceptionFilter
                 error = new
                 {
                     code = "CONCURRENCY_CONFLICT",
-                    message = "Dữ liệu đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại dữ liệu mới nhất."
+                    message = "Dữ liệu đã bị thay đổi bởi một người dùng hoặc tiến trình khác trong khi bạn đang thao tác. Vui lòng tải lại (Refresh) dữ liệu mới nhất trước khi thực hiện lại."
                 },
                 timestamp = DateTime.UtcNow
             })
